@@ -3,38 +3,218 @@
 
 #include <sys/stat.h>
 #include <string>
+#include <cstring>
+#include <experimental/filesystem>
+#include "bundle.h"
+#include "log_system/log.h"
 
 namespace cloud_backup
 {
+    namespace fs = std::experimental::filesystem;
     class FileUtil
     {
     public:
-        FileUtil(const std::string &filename) : _filename(filename) {}
+        // 传入文件路径初始化该对象
+        FileUtil(const std::string &filename) : _filename(filename)
+        {
+            _filename = path_transform(_filename);
+        }
         ~FileUtil() {}
+        // 获取文件大小，失败返回-1
         int64_t GetFileSize()
         {
             struct stat st;
             if (stat(_filename.c_str(), &st) == -1)
+            {
+                int err = errno;
+                LOG_ERROR(log_system::get_logger("root"), "stat error:%d  message:%s", err, strerror(err));
                 return -1;
+            }
             return st.st_size;
         }
+        // 获取文件最后一次修改时间，失败返回-1
         time_t LastModTime()
         {
-            return 0;
+            struct stat st;
+            if (stat(_filename.c_str(), &st) == -1)
+            {
+                int err = errno;
+                LOG_ERROR(log_system::get_logger("root"), "stat error:%d  message:%s", err, strerror(err));
+                return -1;
+            }
+            return st.st_mtime;
         }
+        // 获取文件最后一次访问时间，失败返回-1
         time_t LastAccTime()
         {
-            return 0;
+            struct stat st;
+            if (stat(_filename.c_str(), &st) == -1)
+            {
+                int err = errno;
+                LOG_ERROR(log_system::get_logger("root"), "stat error:%d  message:%s", err, strerror(err));
+                return -1;
+            }
+            return st.st_atime;
         }
+        // 根据路径返回文件名，如果path为根目录或者路径有问题就返回空串
         std::string GetFileName()
         {
-            return "";
+            std::string ret = is_path(_filename);
+            if (ret == "" || ret == "/")
+            {
+                LOG_ERROR(log_system::get_logger("root"), "GetFileName error, file_path is error");
+                return "";
+            }
+            if (ret[ret.size() - 1] == '/')
+                ret.pop_back();
+            size_t pos = ret.find_last_of('/');
+            return ret.substr(pos + 1);
         }
+        // 以二进制的方式获取文件中指定位置开始的指定长度的数据，成功获取后数据放入传入的buffer中，失败则返回false
+        // 若传入的pos+len>=文件大小，那么就获取从pos开始到文件结尾的所有数据，若pos>=文件大小则输出空串
+        bool GetContent(std::string *buffer, size_t pos = 0, size_t len = UINT32_MAX)
+        {
+            std::ifstream ifs;
+            ifs.open(_filename, std::ios::binary);
+            if (!ifs.is_open())
+            {
+                LOG_ERROR(log_system::get_logger("root"), "GetContent error, open file failed");
+                return false;
+            }
+            int64_t fsize = GetFileSize();
+            if (fsize == -1)
+            {
+                LOG_ERROR(log_system::get_logger("root"), "GetContent error, GetFileSize failed");
+                ifs.close();
+                return false;
+            }
+            if (pos >= fsize)
+            {
+                LOG_WARN(log_system::get_logger("root"), "GetContent error, pos more than file size");
+                *buffer = "";
+                ifs.close();
+                return true;
+            }
+            ifs.seekg(pos, std::ios::beg);
+            len = len < fsize - pos ? len : fsize - pos;
+            char buff[len] = {0};
+            ifs.read(buff, len);
+            if (!ifs.good())
+            {
+                LOG_ERROR(log_system::get_logger("root"), "GetContent error, read file failed");
+                ifs.close();
+                return false;
+            }
+            buffer->resize(len);
+            for (size_t i = 0; i < len; i++)
+                (*buffer)[i] = buff[i];
+            ifs.close();
+            return true;
+        }
+        // 追加的向文件中写入内容，失败返回false
+        bool SetContent(const std::string &buffer)
+        {
+            std::ofstream ofs;
+            ofs.open(_filename, std::ios::binary);
+            if (!ofs.is_open())
+            {
+                LOG_ERROR(log_system::get_logger("root"), "SetContent error, file open failed");
+                return false;
+            }
+            ofs.write(buffer.c_str(), buffer.size());
+            if (!ofs.good())
+            {
+                LOG_ERROR(log_system::get_logger("root"), "SetContent error, write file failed");
+                ofs.close();
+                return false;
+            }
+            ofs.close();
+            return true;
+        }
+        // 将文件内容清空，失败返回false
+        bool Clear()
+        {
+            std::ofstream ofs;
+            ofs.open(_filename, std::ios::trunc);
+            if (ofs.is_open())
+            {
+                ofs.close();
+                return true;
+            }
+            else
+            {
+                LOG_ERROR(log_system::get_logger("root"), "Clear error, file open failed");
+                return false;
+            }
+        }
+        // 将当前文件压缩并根据传入的路径将压缩后的数据放入传入的压缩包文件中，失败则返回false
+        bool Compression(const std::string &packname)
+        {
+            // 读取数据
+            std::string content;
+            if (GetContent(&content) == false)
+            {
+                LOG_ERROR(log_system::get_logger("root"), "Compression error, GetContent failed");
+                return false;
+            }
+            // 压缩数据
+            content = bundle::pack(bundle::LZIP, content);
+            // 将压缩后的数据写入对应的压缩文件中
+            FileUtil pack(packname);
+            if (!pack.Clear())
+            {
+                LOG_ERROR(log_system::get_logger("root"), "Compression error, packname Clear failed");
+                return false;
+            }
+            if (!pack.SetContent(content))
+            {
+                LOG_ERROR(log_system::get_logger("root"), "Compression error, SetContent failed");
+                return false;
+            }
+            return true;
+        }
+        // 将当前文件解压并根据传入的路径将解压后的数据放入传入的文件中，失败则返回false
+        bool UnCompression(const std::string &filename)
+        {
+            // 读取数据
+            std::string content;
+            if (GetContent(&content) == false)
+            {
+                LOG_ERROR(log_system::get_logger("root"), "UnCompression error, GetContent failed");
+                return false;
+            }
+            // 解压数据
+            content = bundle::unpack(content);
+            // 将解压后的数据写入对应的文件中
+            FileUtil file(filename);
+            if (!file.Clear())
+            {
+                LOG_ERROR(log_system::get_logger("root"), "UnCompression error, filename Clear failed");
+                return false;
+            }
+            if (!file.SetContent(content))
+            {
+                LOG_ERROR(log_system::get_logger("root"), "UnCompression error, SetContent failed");
+                return false;
+            }
+            return true;
+        }
+        //
 
     private:
+        // 根据传入的文件的path路径返回该文件所处的目录
+        // 如果传入的路径有问题就返回空串,如果传入的是根目录则也返回根目录
+        static std::string file_dir(const std::string &path)
+        {
+            std::string ret = is_path(path);
+            if (ret == "")
+                return ret;
+            size_t pos = ret.find_last_of('/'); // 经过is_path()的调用，ret中一定有'/',且除了根目录ret不以'/'结尾
+            return ret.substr(0, pos + 1);
+        }
         // 检查传入的文件路径path是否是个正确的路径,要求正确路径中不能有 "//"
         // 如果是正确路径(绝对路径，相对路径均可)就将其补充完善并返回，如果不是正确路径就返回空字符串
-        std::string is_path(const std::string &path)
+        static std::string is_path(const std::string &path)
         {
             if (path.size() == 0 || path == "/")
                 return path;
@@ -57,6 +237,48 @@ namespace cloud_backup
             if (ret[ret.size() - 1] == '/')
                 ret.pop_back();
             return ret;
+        }
+        // 传入相对路径，返回绝对路径，要求传入的相对路径是正确的，如果发生错误则返回空串
+        // 如果传入的就是绝对路径，那么就不做转化返回该路径,且返回的绝对路径中不含"."和".."
+        static std::string path_transform(const std::string &path)
+        {
+            std::string ret = is_path(path);
+            if (ret == "")
+                return "";
+
+            std::string absolute_path = "/";
+            size_t lpos = 1, rpos = 1;
+
+            if (ret[0] != '/')
+            {
+                char *p = getcwd(NULL, 0);
+                if (p == nullptr)
+                    return "";
+                absolute_path = p;
+                free(p);
+                lpos = 0, rpos = 0;
+            }
+
+            while (lpos < ret.size())
+            {
+                rpos = ret.find_first_of('/', lpos);
+                std::string sstr = ret.substr(lpos, (rpos == std::string::npos ? rpos : rpos - lpos));
+                lpos = (rpos == std::string::npos ? rpos : rpos + 1);
+                if (sstr == ".")
+                    continue;
+                else if (sstr == "..")
+                    absolute_path = file_dir(absolute_path);
+                else
+                {
+                    if (absolute_path[absolute_path.size() - 1] != '/')
+                        absolute_path.push_back('/');
+                    absolute_path += sstr;
+                }
+            }
+
+            if (absolute_path[absolute_path.size() - 1] == '/' && absolute_path != "/")
+                absolute_path.pop_back();
+            return absolute_path;
         }
 
     private:

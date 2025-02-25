@@ -1,5 +1,5 @@
-cloud_backup:cloud_backup.cc 
-	g++ -o $@ $^ -std=c++11 -lpthread
+cloud_backup:cloud_backup.cc
+	g++ -o $@ $^ -std=c++17 -lpthread -lbundle -L ~/cloud_backup/lib
 
 .PHONY:clean
 clean:
