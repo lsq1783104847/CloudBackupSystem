@@ -2,9 +2,11 @@
 #define CLOUD_UTIL_HPP
 
 #include <sys/stat.h>
+#include <memory>
 #include <string>
 #include <cstring>
 #include <experimental/filesystem>
+#include <jsoncpp/json/json.h>
 #include "bundle.h"
 #include "log_system/log.h"
 
@@ -199,7 +201,21 @@ namespace cloud_backup
             }
             return true;
         }
-        //
+        // 检测当前文件是否已经存在，若存在则返回true,否则返回false
+        // bool Exist()
+        // {
+        //     if (_filename == "" || access(_filename.c_str(), F_OK) == 0)
+        //     {
+        //         LOG_DEBUG(log_system::get_logger("root"), "file not Exist");
+        //         return false;
+        //     }
+        //     return true;
+        // }
+        // //
+        // bool createDirectories()
+        // {
+
+        // }
 
     private:
         // 根据传入的文件的path路径返回该文件所处的目录
@@ -212,7 +228,7 @@ namespace cloud_backup
             size_t pos = ret.find_last_of('/'); // 经过is_path()的调用，ret中一定有'/',且除了根目录ret不以'/'结尾
             return ret.substr(0, pos + 1);
         }
-        // 检查传入的文件路径path是否是个正确的路径,要求正确路径中不能有 "//"
+        // 检查传入的文件路径path是否是个正确的路径,要求正确路径中不能有 "//",如果以"~/"开头就将其转换成家目录
         // 如果是正确路径(绝对路径，相对路径均可)就将其补充完善并返回，如果不是正确路径就返回空字符串
         static std::string is_path(const std::string &path)
         {
@@ -220,10 +236,19 @@ namespace cloud_backup
                 return path;
             size_t rpos = 0, lpos = 0;
             std::string ret;
-            if (path[0] != '/')
-                ret += "./";
-            else
+            size_t pos = 0;
+            if (path[0] == '~' && (path.size() == 1 || path[1] == '/'))
+            {
+                char *p = getenv("HOME");
+                if (p == nullptr)
+                    return "";
+                ret += p;
+                pos = 1;
+            }
+            else if (path[0] == '/')
                 lpos = 1;
+            else
+                ret += "./";
             while (lpos < path.size())
             {
                 rpos = path.find_first_of('/', lpos);
@@ -233,7 +258,7 @@ namespace cloud_backup
                     break;
                 lpos = rpos + 1;
             }
-            ret += path;
+            ret += path.substr(pos);
             if (ret[ret.size() - 1] == '/')
                 ret.pop_back();
             return ret;
@@ -283,6 +308,50 @@ namespace cloud_backup
 
     private:
         std::string _filename;
+    };
+
+    class JsonUtil
+    {
+    public:
+        // 通过Json完成序列化，成功返回true
+        static bool Serialize(const Json::Value &info, std::string *buff)
+        {
+            Json::StreamWriterBuilder builder;
+            builder["emitUTF8"] = true;
+            std::shared_ptr<Json::StreamWriter> writer(builder.newStreamWriter());
+            if (write == nullptr)
+            {
+                LOG_ERROR(log_system::get_logger("root"), "Json newStreamWriter error, Serialize fail");
+                return false;
+            }
+            std::stringstream ss;
+            if (writer->write(info, &ss) != 0)
+            {
+                LOG_ERROR(log_system::get_logger("root"), "Json write error, Serialize fail");
+                return false;
+            }
+            *buff = ss.str();
+            return true;
+        }
+        // 通过Json完成反序列化，成功返回true
+        static bool Deserialize(const std::string &buff, Json::Value *info)
+        {
+            Json::CharReaderBuilder builder;
+            std::shared_ptr<Json::CharReader> reader(builder.newCharReader());
+            if (reader == nullptr)
+            {
+                LOG_ERROR(log_system::get_logger("root"), "Json newCharReader error, Deserialize fail");
+                return false;
+            }
+            std::string err;
+            bool ret = reader->parse(buff.c_str(), buff.c_str() + buff.size(), info, &err);
+            if (ret == false)
+            {
+                LOG_ERROR(log_system::get_logger("root"), "Json parse error, message:%s, Deserialize fail", err.c_str());
+                return false;
+            }
+            return true;
+        }
     };
 }
 
