@@ -1,5 +1,5 @@
-#ifndef LOG_H
-#define LOG_H
+#ifndef LOG_SYSTEM_LOG_H
+#define LOG_SYSTEM_LOG_H
 
 #include "logger.hpp"
 
@@ -18,14 +18,16 @@ namespace log_system
     {
         return LoggerManager::get_instance()->add_logger(logger_name, type, sinks, val, fmt_str);
     }
+    // 根据日志器名称直接删除日志器，失败或不存在返回false
+    bool delete_logger(const std::string &name) { return LoggerManager::get_instance()->delete_logger(name); }
 // 传入日志器和日志等级以及要输出的日志主体信息的格式化字符串和参数，用传入的日志器进行日志的落地输出
-#define LOG(logger, level, msg, ...) (logger)->log(level, __FILE__, __LINE__, msg, ##__VA_ARGS__)
+#define LOG_SYSTEM_LOG(logger, level, msg, ...) (logger)->log(level, __FILE__, __LINE__, msg, ##__VA_ARGS__)
 // 以下接口是封装的上一接口，是省略传入日志输出等级的实现
-#define LOG_DEBUG(logger, msg, ...) LOG(logger, log_system::Level::value::DEBUG, msg, ##__VA_ARGS__)
-#define LOG_INFO(logger, msg, ...) LOG(logger, log_system::Level::value::INFO, msg, ##__VA_ARGS__)
-#define LOG_WARN(logger, msg, ...) LOG(logger, log_system::Level::value::WARN, msg, ##__VA_ARGS__)
-#define LOG_ERROR(logger, msg, ...) LOG(logger, log_system::Level::value::ERROR, msg, ##__VA_ARGS__)
-#define LOG_FATAL(logger, msg, ...) LOG(logger, log_system::Level::value::FATAL, msg, ##__VA_ARGS__)
+#define LOG_SYSTEM_LOG_DEBUG(logger, msg, ...) LOG_SYSTEM_LOG(logger, log_system::Level::value::DEBUG, msg, ##__VA_ARGS__)
+#define LOG_SYSTEM_LOG_INFO(logger, msg, ...) LOG_SYSTEM_LOG(logger, log_system::Level::value::INFO, msg, ##__VA_ARGS__)
+#define LOG_SYSTEM_LOG_WARN(logger, msg, ...) LOG_SYSTEM_LOG(logger, log_system::Level::value::WARN, msg, ##__VA_ARGS__)
+#define LOG_SYSTEM_LOG_ERROR(logger, msg, ...) LOG_SYSTEM_LOG(logger, log_system::Level::value::ERROR, msg, ##__VA_ARGS__)
+#define LOG_SYSTEM_LOG_FATAL(logger, msg, ...) LOG_SYSTEM_LOG(logger, log_system::Level::value::FATAL, msg, ##__VA_ARGS__)
 }
 
 #endif

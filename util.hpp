@@ -1,5 +1,5 @@
-#ifndef CLOUD_UTIL_HPP
-#define CLOUD_UTIL_HPP
+#ifndef CLOUD_BACKUP_UTIL_HPP
+#define CLOUD_BACKUP_UTIL_HPP
 
 #include <sys/stat.h>
 #include <memory>
@@ -8,10 +8,11 @@
 #include <experimental/filesystem>
 #include <jsoncpp/json/json.h>
 #include "bundle.h"
-#include "log_system/log.h"
+#include "log.hpp"
 
 namespace cloud_backup
 {
+
     namespace fs = std::experimental::filesystem;
     class FileUtil
     {
@@ -29,7 +30,7 @@ namespace cloud_backup
             if (stat(_filename.c_str(), &st) == -1)
             {
                 int err = errno;
-                LOG_ERROR(log_system::get_logger("root"), "stat error:%d  message:%s", err, strerror(err));
+                LOG_ERROR("stat error:%d  message:%s", err, strerror(err));
                 return -1;
             }
             return st.st_size;
@@ -41,7 +42,7 @@ namespace cloud_backup
             if (stat(_filename.c_str(), &st) == -1)
             {
                 int err = errno;
-                LOG_ERROR(log_system::get_logger("root"), "stat error:%d  message:%s", err, strerror(err));
+                LOG_ERROR("stat error:%d  message:%s", err, strerror(err));
                 return -1;
             }
             return st.st_mtime;
@@ -53,7 +54,7 @@ namespace cloud_backup
             if (stat(_filename.c_str(), &st) == -1)
             {
                 int err = errno;
-                LOG_ERROR(log_system::get_logger("root"), "stat error:%d  message:%s", err, strerror(err));
+                LOG_ERROR("stat error:%d  message:%s", err, strerror(err));
                 return -1;
             }
             return st.st_atime;
@@ -64,7 +65,7 @@ namespace cloud_backup
             std::string ret = is_path(_filename);
             if (ret == "" || ret == "/")
             {
-                LOG_ERROR(log_system::get_logger("root"), "GetFileName error, file_path is error");
+                LOG_ERROR("GetFileName error, file_path is error");
                 return "";
             }
             if (ret[ret.size() - 1] == '/')
@@ -80,19 +81,19 @@ namespace cloud_backup
             ifs.open(_filename, std::ios::binary);
             if (!ifs.is_open())
             {
-                LOG_ERROR(log_system::get_logger("root"), "GetContent error, open file failed");
+                LOG_ERROR("GetContent error, open file failed");
                 return false;
             }
             int64_t fsize = GetFileSize();
             if (fsize == -1)
             {
-                LOG_ERROR(log_system::get_logger("root"), "GetContent error, GetFileSize failed");
+                LOG_ERROR("GetContent error, GetFileSize failed");
                 ifs.close();
                 return false;
             }
             if (pos >= fsize)
             {
-                LOG_WARN(log_system::get_logger("root"), "GetContent error, pos more than file size");
+                LOG_WARN("GetContent error, pos more than file size");
                 *buffer = "";
                 ifs.close();
                 return true;
@@ -103,7 +104,7 @@ namespace cloud_backup
             ifs.read(buff, len);
             if (!ifs.good())
             {
-                LOG_ERROR(log_system::get_logger("root"), "GetContent error, read file failed");
+                LOG_ERROR("GetContent error, read file failed");
                 ifs.close();
                 return false;
             }
@@ -120,13 +121,13 @@ namespace cloud_backup
             ofs.open(_filename, std::ios::binary);
             if (!ofs.is_open())
             {
-                LOG_ERROR(log_system::get_logger("root"), "SetContent error, file open failed");
+                LOG_ERROR("SetContent error, file open failed");
                 return false;
             }
             ofs.write(buffer.c_str(), buffer.size());
             if (!ofs.good())
             {
-                LOG_ERROR(log_system::get_logger("root"), "SetContent error, write file failed");
+                LOG_ERROR("SetContent error, write file failed");
                 ofs.close();
                 return false;
             }
@@ -145,7 +146,7 @@ namespace cloud_backup
             }
             else
             {
-                LOG_ERROR(log_system::get_logger("root"), "Clear error, file open failed");
+                LOG_ERROR("Clear error, file open failed");
                 return false;
             }
         }
@@ -156,7 +157,7 @@ namespace cloud_backup
             std::string content;
             if (GetContent(&content) == false)
             {
-                LOG_ERROR(log_system::get_logger("root"), "Compression error, GetContent failed");
+                LOG_ERROR("Compression error, GetContent failed");
                 return false;
             }
             // 压缩数据
@@ -165,12 +166,12 @@ namespace cloud_backup
             FileUtil pack(packname);
             if (!pack.Clear())
             {
-                LOG_ERROR(log_system::get_logger("root"), "Compression error, packname Clear failed");
+                LOG_ERROR("Compression error, packname Clear failed");
                 return false;
             }
             if (!pack.SetContent(content))
             {
-                LOG_ERROR(log_system::get_logger("root"), "Compression error, SetContent failed");
+                LOG_ERROR("Compression error, SetContent failed");
                 return false;
             }
             return true;
@@ -182,7 +183,7 @@ namespace cloud_backup
             std::string content;
             if (GetContent(&content) == false)
             {
-                LOG_ERROR(log_system::get_logger("root"), "UnCompression error, GetContent failed");
+                LOG_ERROR("UnCompression error, GetContent failed");
                 return false;
             }
             // 解压数据
@@ -191,12 +192,12 @@ namespace cloud_backup
             FileUtil file(filename);
             if (!file.Clear())
             {
-                LOG_ERROR(log_system::get_logger("root"), "UnCompression error, filename Clear failed");
+                LOG_ERROR("UnCompression error, filename Clear failed");
                 return false;
             }
             if (!file.SetContent(content))
             {
-                LOG_ERROR(log_system::get_logger("root"), "UnCompression error, SetContent failed");
+                LOG_ERROR("UnCompression error, SetContent failed");
                 return false;
             }
             return true;
@@ -206,7 +207,7 @@ namespace cloud_backup
         // {
         //     if (_filename == "" || access(_filename.c_str(), F_OK) == 0)
         //     {
-        //         LOG_DEBUG(log_system::get_logger("root"), "file not Exist");
+        //         LOG_DEBUG("file not Exist");
         //         return false;
         //     }
         //     return true;
@@ -321,13 +322,13 @@ namespace cloud_backup
             std::shared_ptr<Json::StreamWriter> writer(builder.newStreamWriter());
             if (write == nullptr)
             {
-                LOG_ERROR(log_system::get_logger("root"), "Json newStreamWriter error, Serialize fail");
+                LOG_ERROR("Json newStreamWriter error, Serialize fail");
                 return false;
             }
             std::stringstream ss;
             if (writer->write(info, &ss) != 0)
             {
-                LOG_ERROR(log_system::get_logger("root"), "Json write error, Serialize fail");
+                LOG_ERROR("Json write error, Serialize fail");
                 return false;
             }
             *buff = ss.str();
@@ -340,14 +341,14 @@ namespace cloud_backup
             std::shared_ptr<Json::CharReader> reader(builder.newCharReader());
             if (reader == nullptr)
             {
-                LOG_ERROR(log_system::get_logger("root"), "Json newCharReader error, Deserialize fail");
+                LOG_ERROR("Json newCharReader error, Deserialize fail");
                 return false;
             }
             std::string err;
             bool ret = reader->parse(buff.c_str(), buff.c_str() + buff.size(), info, &err);
             if (ret == false)
             {
-                LOG_ERROR(log_system::get_logger("root"), "Json parse error, message:%s, Deserialize fail", err.c_str());
+                LOG_ERROR("Json parse error, message:%s, Deserialize fail", err.c_str());
                 return false;
             }
             return true;

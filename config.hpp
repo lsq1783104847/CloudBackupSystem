@@ -1,5 +1,5 @@
-#ifndef CONFIG_HPP
-#define CONFIG_HPP
+#ifndef CLOUD_BACKUP_CONFIG_HPP
+#define CLOUD_BACKUP_CONFIG_HPP
 
 #include "util.hpp"
 
@@ -13,7 +13,7 @@ namespace cloud_backup
         {
             static std::shared_ptr<Config> cnf(new Config());
             if (cnf == nullptr)
-                LOG_DEBUG(log_system::get_logger("root"), "create Config object fail");
+                LOG_DEBUG("create Config object fail");
             return cnf;
         }
 
@@ -33,13 +33,13 @@ namespace cloud_backup
             std::string content;
             if (file.GetContent(&content) == false)
             {
-                LOG_DEBUG(log_system::get_logger("root"), "GetContent error, ReadConfigFile fail");
+                LOG_DEBUG("GetContent error, ReadConfigFile fail");
                 return false;
             }
             Json::Value value;
             if (JsonUtil::Deserialize(content, &value) == false)
             {
-                LOG_DEBUG(log_system::get_logger("root"), "JsonUtil::Deserialize error, ReadConfigFile fail");
+                LOG_DEBUG("JsonUtil::Deserialize error, ReadConfigFile fail");
                 return false;
             }
             _server_ip = value["server_ip"].asString();

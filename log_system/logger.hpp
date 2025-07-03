@@ -1,5 +1,5 @@
-#ifndef LOGGER_HPP
-#define LOGGER_HPP
+#ifndef LOG_SYSTEM_LOGGER_HPP
+#define LOG_SYSTEM_LOGGER_HPP
 
 #include <vector>
 #include <mutex>
@@ -165,6 +165,16 @@ namespace log_system
             if (_loggers_hash.find(logger_name) != _loggers_hash.end())
                 return _loggers_hash[logger_name];
             return Logger::ptr(nullptr);
+        }
+        // 根据logger_name删除已经存在的Logger，失败或该Logger不存在则返回false，否则返回true
+        bool delete_logger(const std::string &logger_name)
+        {
+            if (logger_name == "")
+                return false;
+            std::unique_lock<std::mutex> loggers_lock(_loggers_mutex);
+            if (_loggers_hash.erase(logger_name) == 1)
+                return true;
+            return false;
         }
         // 用户通过get_instance()来获取唯一的单例对象使用
         static LoggerManager::ptr get_instance()
