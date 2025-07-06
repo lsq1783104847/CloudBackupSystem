@@ -7,6 +7,9 @@ namespace cloud_backup
 {
     class Config
     {
+    private:
+        const std::string _config_file = "./cloud_backup.cnf";
+
     public:
         ~Config() {}
         static std::shared_ptr<Config> GetInstance()
@@ -33,13 +36,13 @@ namespace cloud_backup
             std::string content;
             if (file.GetContent(&content) == false)
             {
-                LOG_DEBUG("GetContent error, ReadConfigFile fail");
+                LOG_ERROR("GetContent error, ReadConfigFile fail");
                 return false;
             }
             Json::Value value;
             if (JsonUtil::Deserialize(content, &value) == false)
             {
-                LOG_DEBUG("JsonUtil::Deserialize error, ReadConfigFile fail");
+                LOG_ERROR("JsonUtil::Deserialize error, ReadConfigFile fail");
                 return false;
             }
             _server_ip = value["server_ip"].asString();
@@ -55,9 +58,6 @@ namespace cloud_backup
         uint16_t _server_port;
         size_t _hot_time;
         std::string _compression_file_suffix;
-
-    private:
-        const std::string _config_file = "./cloud_backup.cnf";
     };
 }
 #endif

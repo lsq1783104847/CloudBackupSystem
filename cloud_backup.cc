@@ -9,7 +9,7 @@ void ConfigTest()
     std::cout << p->GetCompressionFileSuffix() << std::endl;
 }
 
-void Jsontest()
+void JsonTest()
 {
     const char *name = "小明";
     Json::Value root;
@@ -33,34 +33,49 @@ void Jsontest()
         std::cout << tmp["成绩"][i].asString() << std::endl;
 }
 
-void test(const std::string filename)
+void CompressionTest(const std::string filename)
 {
+    cloud_backup::FileUtil file(filename);
+    file.Compression("test.lz");
+    cloud_backup::FileUtil file2("test.lz");
+    file2.UnCompression("test.txt");
+}
 
-    // cloud_backup::FileUtil file(filename);
-    // file.Compression("test.lz");
-    // cloud_backup::FileUtil file2("test.lz");
-    // file2.UnCompression("test.txt");
+void FileUtilTest1()
+{
+    cloud_backup::FileUtil file("./makefile");
+    std::cout << file.GetFilePath() << std::endl;
+    std::cout << file.GetFileName() << std::endl;
+    std::cout << file.GetFileSize() << std::endl;
+    std::cout << file.LastAccTime() << std::endl;
+    std::cout << file.LastModTime() << std::endl;
+}
 
-    // file.Clear();
-    // std::string buffer;
-    // file.GetContent(&buffer);
-    // cloud_backup::FileUtil file2("test.txt");
-    // file2.SetContent(buffer);
+void FileUtilTest2()
+{
+    cloud_backup::FileUtil directy("./a/b");
+    std::cout << directy.Exists() << std::endl;
+    directy.CreateDirectories();
+    std::cout << directy.Exists() << std::endl;
+    std::vector<cloud_backup::FileUtil> files;
+    directy.ScanDirectory(&files);
+    for (auto &file : files)
+        std::cout << file.GetFilePath() << std::endl;
 }
 
 int main(int argc, char *argv[])
 {
-    ConfigTest();
+    cloud_backup::InitCloudBackupLogger();
 
-    // Jsontest();
+    // ConfigTest();
 
-    // test(argv[1]);
+    // JsonTest();
 
-    // loud_backup::FileUtil file("./makefile");
-    // cloud_backup::FileUtil file("./makefile");
-    // std::cout << file.GetFileName() << std::endl;
-    // std::cout << file.GetFileSize() << std::endl;
-    // std::cout << file.LastAccTime() << std::endl;
-    // std::cout << file.LastModTime() << std::endl;
+    // CompressionTest(argv[1]);
+
+    // FileUtilTest1();
+
+    FileUtilTest2();
+
     return 0;
 }

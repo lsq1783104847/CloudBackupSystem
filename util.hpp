@@ -5,29 +5,28 @@
 #include <memory>
 #include <string>
 #include <cstring>
-#include <experimental/filesystem>
 #include <jsoncpp/json/json.h>
+#include <filesystem>
 #include "bundle.h"
 #include "log.hpp"
 
 namespace cloud_backup
 {
-
-    namespace fs = std::experimental::filesystem;
+    namespace fs = std::filesystem;
     class FileUtil
     {
     public:
         // 传入文件路径初始化该对象
-        FileUtil(const std::string &filename) : _filename(filename)
+        FileUtil(const std::string &filepath) : _filepath(filepath)
         {
-            _filename = path_transform(_filename);
+            _filepath = path_transform(_filepath);
         }
         ~FileUtil() {}
         // 获取文件大小，失败返回-1
         int64_t GetFileSize()
         {
             struct stat st;
-            if (stat(_filename.c_str(), &st) == -1)
+            if (stat(_filepath.c_str(), &st) == -1)
             {
                 int err = errno;
                 LOG_ERROR("stat error:%d  message:%s", err, strerror(err));
@@ -39,7 +38,7 @@ namespace cloud_backup
         time_t LastModTime()
         {
             struct stat st;
-            if (stat(_filename.c_str(), &st) == -1)
+            if (stat(_filepath.c_str(), &st) == -1)
             {
                 int err = errno;
                 LOG_ERROR("stat error:%d  message:%s", err, strerror(err));
@@ -51,7 +50,7 @@ namespace cloud_backup
         time_t LastAccTime()
         {
             struct stat st;
-            if (stat(_filename.c_str(), &st) == -1)
+            if (stat(_filepath.c_str(), &st) == -1)
             {
                 int err = errno;
                 LOG_ERROR("stat error:%d  message:%s", err, strerror(err));
@@ -59,10 +58,15 @@ namespace cloud_backup
             }
             return st.st_atime;
         }
+        // 获取已经转化成绝对路径的文件路径，若传入的路径有问题则返回空串
+        std::string GetFilePath()
+        {
+            return _filepath;
+        }
         // 根据路径返回文件名，如果path为根目录或者路径有问题就返回空串
         std::string GetFileName()
         {
-            std::string ret = is_path(_filename);
+            std::string ret = is_path(_filepath);
             if (ret == "" || ret == "/")
             {
                 LOG_ERROR("GetFileName error, file_path is error");
@@ -78,7 +82,7 @@ namespace cloud_backup
         bool GetContent(std::string *buffer, size_t pos = 0, size_t len = UINT32_MAX)
         {
             std::ifstream ifs;
-            ifs.open(_filename, std::ios::binary);
+            ifs.open(_filepath, std::ios::binary);
             if (!ifs.is_open())
             {
                 LOG_ERROR("GetContent error, open file failed");
@@ -118,7 +122,7 @@ namespace cloud_backup
         bool SetContent(const std::string &buffer)
         {
             std::ofstream ofs;
-            ofs.open(_filename, std::ios::binary);
+            ofs.open(_filepath, std::ios::binary);
             if (!ofs.is_open())
             {
                 LOG_ERROR("SetContent error, file open failed");
@@ -138,7 +142,7 @@ namespace cloud_backup
         bool Clear()
         {
             std::ofstream ofs;
-            ofs.open(_filename, std::ios::trunc);
+            ofs.open(_filepath, std::ios::trunc);
             if (ofs.is_open())
             {
                 ofs.close();
@@ -151,7 +155,7 @@ namespace cloud_backup
             }
         }
         // 将当前文件压缩并根据传入的路径将压缩后的数据放入传入的压缩包文件中，失败则返回false
-        bool Compression(const std::string &packname)
+        bool Compression(const std::string &packpath)
         {
             // 读取数据
             std::string content;
@@ -163,10 +167,10 @@ namespace cloud_backup
             // 压缩数据
             content = bundle::pack(bundle::LZIP, content);
             // 将压缩后的数据写入对应的压缩文件中
-            FileUtil pack(packname);
+            FileUtil pack(packpath);
             if (!pack.Clear())
             {
-                LOG_ERROR("Compression error, packname Clear failed");
+                LOG_ERROR("Compression error, pack Clear failed");
                 return false;
             }
             if (!pack.SetContent(content))
@@ -177,7 +181,7 @@ namespace cloud_backup
             return true;
         }
         // 将当前文件解压并根据传入的路径将解压后的数据放入传入的文件中，失败则返回false
-        bool UnCompression(const std::string &filename)
+        bool UnCompression(const std::string &filepath)
         {
             // 读取数据
             std::string content;
@@ -189,10 +193,10 @@ namespace cloud_backup
             // 解压数据
             content = bundle::unpack(content);
             // 将解压后的数据写入对应的文件中
-            FileUtil file(filename);
+            FileUtil file(filepath);
             if (!file.Clear())
             {
-                LOG_ERROR("UnCompression error, filename Clear failed");
+                LOG_ERROR("UnCompression error, file Clear failed");
                 return false;
             }
             if (!file.SetContent(content))
@@ -202,21 +206,42 @@ namespace cloud_backup
             }
             return true;
         }
-        // 检测当前文件是否已经存在，若存在则返回true,否则返回false
-        // bool Exist()
-        // {
-        //     if (_filename == "" || access(_filename.c_str(), F_OK) == 0)
-        //     {
-        //         LOG_DEBUG("file not Exist");
-        //         return false;
-        //     }
-        //     return true;
-        // }
-        // //
-        // bool createDirectories()
-        // {
-
-        // }
+        // 检测当前文件是否已经存在，若存在则返回true
+        bool Exists()
+        {
+            if (_filepath == "" || access(_filepath.c_str(), F_OK) != 0)
+            {
+                LOG_INFO("file:\"%s\" not Exist", _filepath.c_str());
+                return false;
+            }
+            return true;
+        }
+        // 将当前的_filepath视为一个目录的路径，尝试创建该目录，失败返回false
+        bool CreateDirectories()
+        {
+            if (Exists() == true)
+            {
+                LOG_INFO("file:\"%s\" already Exist", _filepath.c_str());
+                return true;
+            }
+            return fs::create_directories(_filepath);
+        }
+        // 将当前的_filepath视为一个目录的路径，遍历该目录下的所有普通文件，并将其文件路径通过files参数返回，失败返回false
+        bool ScanDirectory(std::vector<FileUtil> *files)
+        {
+            files->clear();
+            if (Exists() == false)
+            {
+                LOG_ERROR("ScanDirectory error, file not Exist");
+                return false;
+            }
+            for (auto &file : fs::directory_iterator(_filepath))
+            {
+                if (fs::is_regular_file(file.path()))
+                    files->push_back(FileUtil(file.path().string()));
+            }
+            return true;
+        }
 
     private:
         // 根据传入的文件的path路径返回该文件所处的目录
@@ -308,7 +333,7 @@ namespace cloud_backup
         }
 
     private:
-        std::string _filename;
+        std::string _filepath;
     };
 
     class JsonUtil

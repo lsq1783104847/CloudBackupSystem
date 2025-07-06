@@ -1,23 +1,26 @@
 #ifndef CLOUD_BACKUP_LOG_HPP
 #define CLOUD_BACKUP_LOG_HPP
 
-#include "./log_system/log.h"
+#include "log_system/log.h"
 
 namespace cloud_backup
 {
-#define CLOUD_BACKUP_LOGGER_NAME "AsynCloudBackupLogger"
-    bool InitCloudBackupLogger(const std::string &LogFilePath)
-    {
-        std::vector<log_system::LogSink::ptr> sinks{
-            log_system::get_sink<log_system::StdoutSink>(),
-            log_system::get_sink<log_system::RollFileSinkBySize>(LogFilePath, 1024 * 1024 * 10)};
-        return log_system::add_logger(CLOUD_BACKUP_LOGGER_NAME, log_system::ASYNC_LOGGER, sinks, log_system::Level::DEBUG);
-    }
+#define CLOUD_BACKUP_LOGGER_NAME "AsynCloudBackupLogger"   // 日志器名称
+#define CLOUD_BACKUP_LOGGER_LEVEL log_system::Level::DEBUG // 日志器输出等级
+#define CLOUD_BACKUP_LOGGER_TYPE log_system::SYNC_LOGGER   // 日志器类型(同步或异步)
+
 #define LOG_DEBUG(msg, ...) LOG_SYSTEM_LOG_DEBUG(log_system::get_logger(CLOUD_BACKUP_LOGGER_NAME), msg, ##__VA_ARGS__)
-#define LOG_INFO(msg, ...) LOG_SYSTEM_LOG_DEBUG(log_system::get_logger(CLOUD_BACKUP_LOGGER_NAME), msg, ##__VA_ARGS__)
-#define LOG_WARN(msg, ...) LOG_SYSTEM_LOG_DEBUG(log_system::get_logger(CLOUD_BACKUP_LOGGER_NAME), msg, ##__VA_ARGS__)
-#define LOG_ERROR(msg, ...) LOG_SYSTEM_LOG_DEBUG(log_system::get_logger(CLOUD_BACKUP_LOGGER_NAME), msg, ##__VA_ARGS__)
-#define LOG_FATAL(msg, ...) LOG_SYSTEM_LOG_DEBUG(log_system::get_logger(CLOUD_BACKUP_LOGGER_NAME), msg, ##__VA_ARGS__)
+#define LOG_INFO(msg, ...) LOG_SYSTEM_LOG_INFO(log_system::get_logger(CLOUD_BACKUP_LOGGER_NAME), msg, ##__VA_ARGS__)
+#define LOG_WARN(msg, ...) LOG_SYSTEM_LOG_WARN(log_system::get_logger(CLOUD_BACKUP_LOGGER_NAME), msg, ##__VA_ARGS__)
+#define LOG_ERROR(msg, ...) LOG_SYSTEM_LOG_ERROR(log_system::get_logger(CLOUD_BACKUP_LOGGER_NAME), msg, ##__VA_ARGS__)
+#define LOG_FATAL(msg, ...) LOG_SYSTEM_LOG_FATAL(log_system::get_logger(CLOUD_BACKUP_LOGGER_NAME), msg, ##__VA_ARGS__)
+
+    // 初始化日志器，在没读取配置文件的日志输出路径前将日志输出到标准输出
+    bool InitCloudBackupLogger()
+    {
+        std::vector<log_system::LogSink::ptr> sinks{log_system::get_sink<log_system::StdoutSink>()};
+        return log_system::add_logger(CLOUD_BACKUP_LOGGER_NAME, CLOUD_BACKUP_LOGGER_TYPE, sinks, CLOUD_BACKUP_LOGGER_LEVEL);
+    }
 }
 
 #endif

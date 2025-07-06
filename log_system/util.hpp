@@ -68,7 +68,7 @@ namespace log_system
             size_t pos = ret.find_last_of('/'); // 经过is_path()的调用，ret中一定有'/',且除了根目录ret不以'/'结尾
             return ret.substr(0, pos + 1);
         }
-        // 根据path路径创建目录，如果已经存在就直接返回真
+        // 将当前的path视为一个目录的路径，尝试创建该目录，失败返回false
         bool create_dir(const std::string &path)
         {
             std::string ret = is_path(path);
