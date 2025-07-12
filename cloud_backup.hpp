@@ -3,6 +3,7 @@
 
 #include "util.hpp"
 #include "config.hpp"
+#include "data_manager.hpp"
 
 namespace cloud_backup
 {

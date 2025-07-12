@@ -10,7 +10,7 @@
 
 namespace log_system
 {
-#define DEFAULT_ASYN_THREAD_SIZE 2 // 默认的异步工作线程池中的工作线程数量
+#define DEFAULT_ASYN_THREAD_SIZE 1 // 默认的异步工作线程池中的工作线程数量
     // 异步工作线程池模块，采用双缓冲区的思想实现,设计为单例，将来所有的Asynlogger共用同一套异步工作线程池，已保证其提供的所有操作的线程安全
     class AsynWorkerPool
     {

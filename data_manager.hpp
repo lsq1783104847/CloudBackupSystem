@@ -2,33 +2,158 @@
 #define CLOUD_BACKUP_DATA_MANAGER_HPP
 
 #include "util.hpp"
+#include "config.hpp"
 #include <unordered_map>
-#include <pthread.h>
+#include <shared_mutex>
+#include <condition_variable>
 
 namespace cloud_backup
 {
     struct BackupInfo
     {
-        bool _compression_flag; // 文件是否压缩存储标志位
-        size_t _fsize;          // 文件大小
-        time_t _atime;          // 文件最后一次访问时间
-        time_t _mtime;          // 文件最后一次修改时间
-        std::string _filepath;  // 文件未被压缩时的存储路径
-        std::string _packpath;  // 文件被压缩后的存储路径
-        std::string _url_path;  // 文件的url访问路径
+        using ptr = std::shared_ptr<BackupInfo>;
+        bool _compress_flag = false; // 文件是否压缩存储标志位，默认不压缩
+        size_t _fsize;               // 文件大小
+        time_t _atime;               // 文件最后一次访问时间
+        time_t _mtime;               // 文件最后一次修改时间
+        std::string _filename;       // 文件名（仅文件名，不含路径）
+        // 根据传入的文件路径，用获取到的文件属性信息创建 BackupInfo 对象，并返回其指针
+        static BackupInfo::ptr NewBackupInfo(const std::string &filepath)
+        {
+            FileUtil file(filepath);
+            if (file.Exists() == false)
+            {
+                LOG_ERROR("NewBackupInfo error, file not exist: %s", file.GetFilePath().c_str());
+                return BackupInfo::ptr(nullptr);
+            }
+            BackupInfo::ptr info(new BackupInfo());
+            info->_fsize = file.GetFileSize();
+            info->_atime = file.LastAccTime();
+            info->_mtime = file.LastModTime();
+            info->_filename = file.GetFileName();
+            if (info->_fsize == -1 || info->_atime == -1 || info->_mtime == -1 || info->_filename == "")
+            {
+                LOG_ERROR("NewBackupInfo error, get file attributes failed: %s", file.GetFilePath().c_str());
+                return BackupInfo::ptr(nullptr);
+            }
+            return info;
+        }
     };
 
+    // DataManager类是用于记录所有存储到云端的备份文件属性信息的单例类
+    // 文件的属性信息会由DataManager管理并单独存放到文件中保存下来，这样将来启动时不用解压遍历所有的文件获取信息
+    // 整个文件系统维护一个原则：只要是在DataManager管理的文件那么在云服务器上肯定有
+    // (所以上传的文件要先落盘才会添加到DataManager中，删除的文件要先从DataManager中删除才会从云服务器上删除，
+    // 压缩或解压的文件只有在成功后才会修改在DataManager上的状态标记，然后才会删除原状态文件)
     class DataManager
     {
     public:
-        DataManager()
+        using ptr = std::shared_ptr<DataManager>;
+        ~DataManager() { _file_storage_thread.join(); }
+        // 向数据管理器中插入一个新的文件备份信息，失败返回false
+        bool Insert(const BackupInfo &info)
         {
-            
+            std::unique_lock<std::shared_mutex> write_lock(_rwlock);
+            if (_hash.find(info._filename) != _hash.end())
+            {
+                LOG_WARN("Insert error, file already exists: %s", info._filename.c_str());
+                return false;
+            }
+            _hash[info._filename] = info;
+            _is_dirty = true;
+            _file_storage_cond.notify_all();
+            return true;
+        }
+        // 根据文件名在数据管理器中删除一个文件备份信息，失败返回false
+        bool Delete(const std::string &filename)
+        {
+            std::unique_lock<std::shared_mutex> write_lock(_rwlock);
+            if (_hash.erase(filename) == 0)
+            {
+                LOG_WARN("Delete error, file not found: %s", filename.c_str());
+                return false;
+            }
+            _is_dirty = true;
+            _file_storage_cond.notify_all();
+            return true;
+        }
+        // 根据文件名获取文件备份属性信息，失败返回nullptr
+        BackupInfo::ptr GetOneByFileName(const std::string &filename)
+        {
+            std::shared_lock<std::shared_mutex> read_lock(_rwlock);
+            if (_hash.find(filename) != _hash.end())
+                return std::make_shared<BackupInfo>(_hash[filename]);
+            LOG_WARN("GetOneByFileName error, file not found: %s", filename.c_str());
+            return BackupInfo::ptr(nullptr);
+        }
+        // 从数据管理器中获取所有的文件备份属性信息
+        bool GetAll(std::vector<BackupInfo> *infos)
+        {
+            infos->clear();
+            std::shared_lock<std::shared_mutex> read_lock(_rwlock);
+            for (auto &[filename, info] : _hash)
+                infos->push_back(info);
+            return true;
         }
 
     private:
-        std::string _file;                                 // 将来将文件持久化存储的资源路径
-        std::unordered_map<std::string, BackupInfo> _hash; // 通过hash表用文件路径名快速的访问到文件属性信息
+        DataManager(const DataManager &) = delete;
+        DataManager &operator=(const DataManager &) = delete;
+        DataManager(const std::string &filepath) : _file(filepath), _file_storage_thread(&DataManager::FileStorageThread, this) {}
+        // 异步文件存储线程执行的函数
+        void FileStorageThread()
+        {
+            while (1)
+            {
+                Json::Value root;
+                {
+                    std::shared_lock<std::shared_mutex> read_lock(_rwlock);
+                    _file_storage_cond.wait(read_lock, [&]()
+                                            { return _is_dirty; });
+                    // 将所有的文件备份属性信息序列化成JSON格式字符串
+                    for (const auto &[filename, info] : _hash)
+                    {
+                        Json::Value item;
+                        item["compress_flag"] = info._compress_flag;
+                        item["fsize"] = static_cast<Json::UInt64>(info._fsize);
+                        item["atime"] = static_cast<Json::Int64>(info._atime);
+                        item["mtime"] = static_cast<Json::Int64>(info._mtime);
+                        item["filename"] = info._filename;
+                        root.append(item);
+                    }
+                    _is_dirty = false;
+                }
+                std::string infos_str;
+                if (!JsonUtil::Serialize(root, &infos_str))
+                {
+                    LOG_WARN("Storage error, serialize to JSON failed");
+                    continue;
+                }
+                // 将备份属性信息的字符串写入到文件中
+                if (!_file.SetContent(infos_str))
+                {
+                    LOG_WARN("Storage error, write to file failed: %s", _file.GetFilePath().c_str());
+                    continue;
+                }
+            }
+        }
+
+    public:
+        static DataManager::ptr GetInstance()
+        {
+            static DataManager::ptr data_manager(new DataManager(Config::GetInstance()->GetDataManagerFilePath()));
+            if (data_manager == nullptr)
+                LOG_FATAL("create DataManager object fail");
+            return data_manager;
+        }
+
+    private:
+        FileUtil _file;                                    // 将来将文件持久化存储的资源路径
+        std::unordered_map<std::string, BackupInfo> _hash; // 通过hash表用文件名快速的访问到文件属性信息
+        std::shared_mutex _rwlock;                         // 读写锁，保证多线程环境下对_hash的安全访问
+        bool _is_dirty = false;                            // 标记数据管理器是否需要存储到文件中，若有修改则设置为true
+        std::condition_variable_any _file_storage_cond;    // 条件变量，异步的文件存储线程在不满足条件时就在该条件变量下等待
+        std::thread _file_storage_thread;                  // 异步的文件存储线程
     };
 }
 

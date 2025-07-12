@@ -1,5 +1,5 @@
-#ifndef ERROR_HPP
-#define ERROR_HPP
+#ifndef CLOUD_BACKUP_ERROR_HPP
+#define CLOUD_BACKUP_ERROR_HPP
 
 enum
 {

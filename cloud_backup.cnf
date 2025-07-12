@@ -3,5 +3,6 @@
     "server_port" : 9999,
     "hot_time" : 30,
     "compression_file_suffix" : ".lz",
-    "log_file_path" : "./log/file.log"
+    "log_filepath" : "./log/file.log"
+    "data_manager_filepath" : "./wwwroot/data_manager_file"
 }

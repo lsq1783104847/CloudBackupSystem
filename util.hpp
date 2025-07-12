@@ -7,11 +7,13 @@
 #include <cstring>
 #include <jsoncpp/json/json.h>
 #include <filesystem>
+#include <thread>
 #include "bundle.h"
 #include "log.hpp"
 
 namespace cloud_backup
 {
+#define BUNDLE_COMPRESS_TYPE bundle::LZIP
     namespace fs = std::filesystem;
     class FileUtil
     {
@@ -165,7 +167,7 @@ namespace cloud_backup
                 return false;
             }
             // 压缩数据
-            content = bundle::pack(bundle::LZIP, content);
+            content = bundle::pack(BUNDLE_COMPRESS_TYPE, content);
             // 将压缩后的数据写入对应的压缩文件中
             FileUtil pack(packpath);
             if (!pack.Clear())
@@ -239,6 +241,21 @@ namespace cloud_backup
             {
                 if (fs::is_regular_file(file.path()))
                     files->push_back(FileUtil(file.path().string()));
+            }
+            return true;
+        }
+        // 根据_filepath删除当前文件，失败返回false
+        bool Remove()
+        {
+            if (Exists() == false)
+            {
+                LOG_WARN("Remove error, file:%s not Exist", _filepath.c_str());
+                return false;
+            }
+            if (fs::remove(_filepath) == false)
+            {
+                LOG_WARN("Remove error, file:%s", _filepath.c_str());
+                return false;
             }
             return true;
         }
