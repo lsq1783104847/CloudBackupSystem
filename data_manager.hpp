@@ -3,6 +3,7 @@
 
 #include "util.hpp"
 #include "config.hpp"
+#include "error.hpp"
 #include <unordered_map>
 #include <shared_mutex>
 #include <condition_variable>
@@ -99,7 +100,37 @@ namespace cloud_backup
     private:
         DataManager(const DataManager &) = delete;
         DataManager &operator=(const DataManager &) = delete;
-        DataManager(const std::string &filepath) : _file(filepath), _file_storage_thread(&DataManager::FileStorageThread, this) {}
+        DataManager(const std::string &filepath) : _file(filepath),
+                                                   _file_storage_thread(&DataManager::FileStorageThread, this)
+        {
+            // 初始化加载数据管理器文件中的内容到程序中
+            std::string content;
+            if (!_file.GetContent(&content))
+            {
+                LOG_FATAL("DataManager initialization error, GetContent error");
+                exit(DATA_MANAGER_INIT_ERROR);
+            }
+            if (!content.empty())
+            {
+                Json::Value root;
+                if (!JsonUtil::Deserialize(content, &root))
+                {
+                    LOG_FATAL("DataManager initialization error, JsonUtil::Deserialize error");
+                    exit(DATA_MANAGER_INIT_ERROR);
+                }
+                for (auto &item : root)
+                {
+                    BackupInfo info;
+                    info._compress_flag = item["compress_flag"].asBool();
+                    info._fsize = item["fsize"].asUInt64();
+                    info._atime = item["atime"].asInt64();
+                    info._mtime = item["mtime"].asInt64();
+                    info._filename = item["filename"].asString();
+                    _hash[info._filename] = info;
+                }
+            }
+            LOG_INFO("DataManager initialized successfully, loaded %zu files", _hash.size());
+        }
         // 异步文件存储线程执行的函数
         void FileStorageThread()
         {
@@ -133,6 +164,20 @@ namespace cloud_backup
                 if (!_file.SetContent(infos_str))
                 {
                     LOG_WARN("Storage error, write to file failed: %s", _file.GetFilePath().c_str());
+                    continue;
+                }
+            }
+        }
+        //
+        void HotManager()
+        {
+            while (1)
+            {
+                usleep(1000000); // 每隔1秒检查一次热点文件
+                std::vector<BackupInfo> infos;
+                if (!GetAll(&infos))
+                {
+                    LOG_WARN("HotManager error, GetAll failed");
                     continue;
                 }
             }

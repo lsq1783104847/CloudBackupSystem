@@ -1,4 +1,5 @@
 #include "cloud_backup.hpp"
+#include "llhttp.h"
 
 void ConfigTest()
 {
@@ -63,19 +64,102 @@ void FileUtilTest2()
         std::cout << file.GetFilePath() << std::endl;
 }
 
-int main(int argc, char *argv[])
+void DateManagerTest()
 {
-    cloud_backup::InitCloudBackupLogger();
+    cloud_backup::DataManager::ptr dm = cloud_backup::DataManager::GetInstance();
+    // cloud_backup::BackupInfo::ptr info1 = cloud_backup::BackupInfo::NewBackupInfo("./makefile");
+    // cloud_backup::BackupInfo::ptr info2 = cloud_backup::BackupInfo::NewBackupInfo("./bundle.h");
+    // cloud_backup::BackupInfo::ptr info3 = cloud_backup::BackupInfo::NewBackupInfo("./httplib.h");
+    // if (info1)
+    //     dm->Insert(*info1);
+    // if (info2)
+    //     dm->Insert(*info2);
+    // if (info3)
+    //     dm->Insert(*info3);
+    std::vector<cloud_backup::BackupInfo> infos;
+    dm->GetAll(&infos);
+    for (auto &info : infos)
+    {
+        std::cout << "File: " << info._filename << std::endl;
+        std::cout << "Size: " << info._fsize << std::endl;
+        std::cout << "Last Access Time: " << info._atime << std::endl;
+        std::cout << "Last Modify Time: " << info._mtime << std::endl;
+        std::cout << "Compressed: " << (info._compress_flag ? "Yes" : "No") << std::endl;
+    }
+    // dm->Delete("makefile");
+    // dm->GetAll(&infos);
+    // std::cout << "After deletion:-----------------------------------" << std::endl;
+    // for (auto &info : infos)
+    // {
+    //     std::cout << "File: " << info._filename << std::endl;
+    //     std::cout << "Size: " << info._fsize << std::endl;
+    //     std::cout << "Last Access Time: " << info._atime << std::endl;
+    //     std::cout << "Last Modify Time: " << info._mtime << std::endl;
+    //     std::cout << "Compressed: " << (info._compress_flag ? "Yes" : "No") << std::endl;
+    // }
+    cloud_backup::BackupInfo::ptr pinfo = dm->GetOneByFileName("bundle.h");
+    if (pinfo != nullptr)
+    {
+        std::cout << "Select File: " << pinfo->_filename << std::endl;
+        std::cout << "Size: " << pinfo->_fsize << std::endl;
+        std::cout << "Last Access Time: " << pinfo->_atime << std::endl;
+        std::cout << "Last Modify Time: " << pinfo->_mtime << std::endl;
+        std::cout << "Compressed: " << (pinfo->_compress_flag ? "Yes" : "No") << std::endl;
+    }
+    else
+    {
+        std::cout << "File not found." << std::endl;
+    }
+}
 
-    // ConfigTest();
+// int main(int argc, char *argv[])
+// {
+//     cloud_backup::InitCloudBackupLogger();
 
-    // JsonTest();
+//     // ConfigTest();
 
-    // CompressionTest(argv[1]);
+//     // JsonTest();
 
-    // FileUtilTest1();
+//     // CompressionTest(argv[1]);
 
-    FileUtilTest2();
+//     // FileUtilTest1();
 
-    return 0;
+//     // FileUtilTest2();
+
+//     DateManagerTest();
+
+//     return 0;
+// }
+
+int handle_on_message_complete(llhttp_t* parser) {
+	fprintf(stdout, "Message completed!\n");
+	return 0;
+}
+
+int main() {
+	llhttp_t parser;
+	llhttp_settings_t settings;
+
+	/*Initialize user callbacks and settings */
+	llhttp_settings_init(&settings);
+
+	/*Set user callback */
+	settings.on_message_complete = handle_on_message_complete;
+
+	/*Initialize the parser in HTTP_BOTH mode, meaning that it will select between
+	*HTTP_REQUEST and HTTP_RESPONSE parsing automatically while reading the first
+	*input.
+	*/
+	llhttp_init(&parser, HTTP_BOTH, &settings);
+
+	/*Parse request! */
+	const char* request = "GET / HTTP/1.1\r\n\r\n";
+	int request_len = strlen(request);
+
+	enum llhttp_errno err = llhttp_execute(&parser, request, request_len);
+	if (err == HPE_OK) {
+		fprintf(stdout, "Successfully parsed!\n");
+	} else {
+		fprintf(stderr, "Parse error: %s %s\n", llhttp_errno_name(err), llhttp_get_error_reason(&parser));
+	}
 }

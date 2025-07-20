@@ -10,6 +10,7 @@
 #include <thread>
 #include "bundle.h"
 #include "log.hpp"
+#include "error.hpp"
 
 namespace cloud_backup
 {
