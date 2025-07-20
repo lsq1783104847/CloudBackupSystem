@@ -1,0 +1,12 @@
+{
+    "server_ip": "0.0.0.0",
+    "server_port": 9999,
+    "log_filepath": "./log/file.log",
+    "roll_file_size": 10485760,
+    "data_manager_filepath": "./wwwroot/data_manager_file",
+    "backup_file_dir": "./wwwroot/backup_file_dir",
+    "upload_url_prefix": "/upload",
+    "showlist_url_prefix": "/showlist",
+    "download_url_prefix": "/download",
+    "delete_url_prefix": "/delete"
+}

@@ -3,8 +3,6 @@
 
 #include "util.hpp"
 #include "config.hpp"
-#include "error.hpp"
-#include <unordered_map>
 #include <shared_mutex>
 #include <condition_variable>
 
@@ -42,10 +40,10 @@ namespace cloud_backup
     };
 
     // DataManager类是用于记录所有存储到云端的备份文件属性信息的单例类
-    // 文件的属性信息会由DataManager管理并单独存放到文件中保存下来，这样将来启动时不用解压遍历所有的文件获取信息
-    // 整个文件系统维护一个原则：只要是在DataManager管理的文件那么在云服务器上肯定有
-    // (所以上传的文件要先落盘才会添加到DataManager中，删除的文件要先从DataManager中删除才会从云服务器上删除，
-    // 压缩或解压的文件只有在成功后才会修改在DataManager上的状态标记，然后才会删除原状态文件)
+    // 文件的属性信息会由DataManager管理并单独存放到文件中保存下来，后序如果有文件要压缩存储也可以在不解压的状态下获取其属性信息
+    // 整个云备份系统维护一个原则：只要是在DataManager管理的文件那么在云服务器上肯定有
+    // (所以上传的文件要先落盘才会添加到DataManager中，删除的文件要先从DataManager中删除才会从云服务器上删除)
+    // 未来针对大文件的优化:可以前面一小部分正常存储，后面大半压缩存储，这样可以快速的给予client响应，后序再通过流式的边解压边发送持续传输大文件
     class DataManager
     {
     public:
@@ -164,20 +162,6 @@ namespace cloud_backup
                 if (!_file.SetContent(infos_str))
                 {
                     LOG_WARN("Storage error, write to file failed: %s", _file.GetFilePath().c_str());
-                    continue;
-                }
-            }
-        }
-        //
-        void HotManager()
-        {
-            while (1)
-            {
-                usleep(1000000); // 每隔1秒检查一次热点文件
-                std::vector<BackupInfo> infos;
-                if (!GetAll(&infos))
-                {
-                    LOG_WARN("HotManager error, GetAll failed");
                     continue;
                 }
             }

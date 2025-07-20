@@ -21,6 +21,21 @@ namespace cloud_backup
         std::vector<log_system::LogSink::ptr> sinks{log_system::get_sink<log_system::StdoutSink>()};
         return log_system::add_logger(CLOUD_BACKUP_LOGGER_NAME, CLOUD_BACKUP_LOGGER_TYPE, sinks, CLOUD_BACKUP_LOGGER_LEVEL);
     }
+
+    // 修改日志器的落地方向，在读取配置文件的日志输出路径后将其添加到日志落地方向中，并以滚动文件的方式输出日志，若传入的路径有问题则不修改并返回false
+    bool ModifyCloudBackupLoggerSinks(const std::string &log_path, long long roll_file_size = 10 * 1024 * 1024)
+    {
+        log_system::LogSink::ptr newSink = log_system::get_sink<log_system::RollFileSinkBySize>(log_path, roll_file_size);
+        if (newSink == nullptr)
+        {
+            LOG_ERROR("ModifyCloudBackupLogger error, get_sink failed");
+            return false;
+        }
+        std::vector<log_system::LogSink::ptr> sinks{log_system::get_sink<log_system::StdoutSink>()};
+        sinks.push_back(newSink);
+        log_system::delete_logger(CLOUD_BACKUP_LOGGER_NAME); // 删除原有的日志器
+        return log_system::add_logger(CLOUD_BACKUP_LOGGER_NAME, CLOUD_BACKUP_LOGGER_TYPE, sinks, CLOUD_BACKUP_LOGGER_LEVEL);
+    }
 }
 
 #endif

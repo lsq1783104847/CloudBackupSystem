@@ -1,14 +1,20 @@
 #ifndef CLOUD_BACKUP_UTIL_HPP
 #define CLOUD_BACKUP_UTIL_HPP
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <signal.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <memory>
 #include <string>
 #include <cstring>
 #include <jsoncpp/json/json.h>
 #include <filesystem>
 #include <thread>
-#include "bundle.h"
 #include "log.hpp"
 #include "error.hpp"
 
@@ -100,7 +106,7 @@ namespace cloud_backup
             }
             if (pos >= fsize)
             {
-                LOG_WARN("GetContent error, pos more than file size");
+                LOG_INFO("GetContent error, pos more than file size");
                 *buffer = "";
                 ifs.close();
                 return true;
@@ -156,58 +162,6 @@ namespace cloud_backup
                 LOG_ERROR("Clear error, file open failed");
                 return false;
             }
-        }
-        // 将当前文件压缩并根据传入的路径将压缩后的数据放入传入的压缩包文件中，失败则返回false
-        bool Compression(const std::string &packpath)
-        {
-            // 读取数据
-            std::string content;
-            if (GetContent(&content) == false)
-            {
-                LOG_ERROR("Compression error, GetContent failed");
-                return false;
-            }
-            // 压缩数据
-            content = bundle::pack(BUNDLE_COMPRESS_TYPE, content);
-            // 将压缩后的数据写入对应的压缩文件中
-            FileUtil pack(packpath);
-            if (!pack.Clear())
-            {
-                LOG_ERROR("Compression error, pack Clear failed");
-                return false;
-            }
-            if (!pack.SetContent(content))
-            {
-                LOG_ERROR("Compression error, SetContent failed");
-                return false;
-            }
-            return true;
-        }
-        // 将当前文件解压并根据传入的路径将解压后的数据放入传入的文件中，失败则返回false
-        bool UnCompression(const std::string &filepath)
-        {
-            // 读取数据
-            std::string content;
-            if (GetContent(&content) == false)
-            {
-                LOG_ERROR("UnCompression error, GetContent failed");
-                return false;
-            }
-            // 解压数据
-            content = bundle::unpack(content);
-            // 将解压后的数据写入对应的文件中
-            FileUtil file(filepath);
-            if (!file.Clear())
-            {
-                LOG_ERROR("UnCompression error, file Clear failed");
-                return false;
-            }
-            if (!file.SetContent(content))
-            {
-                LOG_ERROR("UnCompression error, SetContent failed");
-                return false;
-            }
-            return true;
         }
         // 检测当前文件是否已经存在，若存在则返回true
         bool Exists()
@@ -397,6 +351,113 @@ namespace cloud_backup
             return true;
         }
     };
+
+    class NetSocketUtil
+    {
+#define LISTEN_QUEUE_SIZE 32 // listen socket下阻塞等待队列的最大大小
+    public:
+        NetSocketUtil() : _socket(-1) {}
+        ~NetSocketUtil()
+        {
+            if (_socket != -1)
+                close(_socket);
+        }
+        int GetSocketet() { return _socket; }
+        void InitSocket()
+        {
+            int retfd = socket(AF_INET, SOCK_STREAM, 0);
+            if (retfd == -1)
+            {
+                LOG_FATAL("create socket error:%d  message:%s", errno, strerror(errno));
+                exit(INIT_SOCKET_ERROR);
+            }
+            _socket = retfd;
+            // 设置地址和port为可复用的，解决服务器挂掉短时间内无法以相同的port重启的问题
+            int opt = 1;
+            setsockopt(_socket, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt));
+        }
+        void Bind(const sockaddr *addr, socklen_t len)
+        {
+            int ret = bind(_socket, addr, len);
+            if (ret == -1)
+            {
+                LOG_FATAL("bind socket error:%d  message:%s", errno, strerror(errno));
+                exit(BIND_SOCKET_ERROR);
+            }
+        }
+        void Listen()
+        {
+            int ret = listen(_socket, LISTEN_QUEUE_SIZE);
+            if (ret == -1)
+            {
+                LOG_FATAL("listen socket error:%d  message:%s", errno, strerror(errno));
+                exit(LISTEN_SOCKET_ERROR);
+            }
+        }
+        int Accept(sockaddr *addr, socklen_t *len)
+        {
+            int retfd = accept(_socket, addr, len);
+            if (retfd == -1)
+                LOG_WARN("accept error:%d  message:%s", errno, strerror(errno));
+            return retfd;
+        }
+        int Connect(const sockaddr *addr, socklen_t len)
+        {
+            int ret = connect(_socket, addr, len);
+            if (ret == -1)
+                LOG_WARN("connect to server fail:%d  message:%s", errno, strerror(errno));
+            return ret;
+        }
+
+    private:
+        int _socket;
+    };
+
+    // 使当前进程守护进程化
+    void Daemon(const std::string &work_path = "/")
+    {
+        // 让进程不是进程组的组长
+        if (fork() > 0)
+            exit(0);
+
+        // 让进程独立出当前的会话并自成新的会话与进程组，且不与任何终端关联
+        pid_t ret = setsid();
+        if (ret == -1)
+        {
+            LOG_FATAL("setsid error:%d  message:%s", errno, strerror(errno));
+            exit(DAEMON_ERROR);
+        }
+
+        // 忽略一些异常信号
+        signal(SIGCHLD, SIG_IGN);
+        signal(SIGPIPE, SIG_IGN);
+
+        // 将工作路径改为work_path
+        if (chdir(work_path.c_str()) == -1)
+        {
+            LOG_FATAL("chdir error:%d  message:%s", errno, strerror(errno));
+            exit(DAEMON_ERROR);
+        }
+
+        // 对0,1,2文件描述符做特殊处理，在守护进程状态下使其无法使用标准输入输出和错误输出
+        int wfd = open("/dev/null", O_WRONLY);
+        if (wfd == -1)
+        {
+            LOG_FATAL("open error:%d  message:%s", errno, strerror(errno));
+            exit(DAEMON_ERROR);
+        }
+        dup2(wfd, 1);
+        dup2(wfd, 2);
+        close(wfd);
+        int rfd = open("/dev/null", O_RDONLY);
+        if (rfd == -1)
+        {
+            LOG_FATAL("open error:%d  message:%s", errno, strerror(errno));
+            exit(DAEMON_ERROR);
+        }
+        dup2(rfd, 0);
+        close(rfd);
+    }
 }
 
 #endif

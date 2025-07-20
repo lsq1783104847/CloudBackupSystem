@@ -1,13 +1,10 @@
 #include "cloud_backup.hpp"
-#include "llhttp.h"
 
 void ConfigTest()
 {
     auto p = cloud_backup::Config::GetInstance();
-    std::cout << p->GetHotTime() << std::endl;
     std::cout << p->GetServerIp() << std::endl;
     std::cout << p->GetServerPort() << std::endl;
-    std::cout << p->GetCompressionFileSuffix() << std::endl;
 }
 
 void JsonTest()
@@ -32,14 +29,6 @@ void JsonTest()
     std::cout << tmp["年龄"].asInt() << std::endl;
     for (int i = 0; i < tmp["成绩"].size(); i++)
         std::cout << tmp["成绩"][i].asString() << std::endl;
-}
-
-void CompressionTest(const std::string filename)
-{
-    cloud_backup::FileUtil file(filename);
-    file.Compression("test.lz");
-    cloud_backup::FileUtil file2("test.lz");
-    file2.UnCompression("test.txt");
 }
 
 void FileUtilTest1()
@@ -112,54 +101,52 @@ void DateManagerTest()
     }
 }
 
-// int main(int argc, char *argv[])
-// {
-//     cloud_backup::InitCloudBackupLogger();
+int main(int argc, char *argv[])
+{
+    cloud_backup::InitCloudBackupLogger();
 
-//     // ConfigTest();
+    // ConfigTest();
 
-//     // JsonTest();
+    // JsonTest();
 
-//     // CompressionTest(argv[1]);
+    // FileUtilTest1();
 
-//     // FileUtilTest1();
+    // FileUtilTest2();
 
-//     // FileUtilTest2();
+    // DateManagerTest();
 
-//     DateManagerTest();
+    return 0;
+}
 
-//     return 0;
+// int handle_on_message_complete(llhttp_t* parser) {
+// 	fprintf(stdout, "Message completed!\n");
+// 	return 0;
 // }
 
-int handle_on_message_complete(llhttp_t* parser) {
-	fprintf(stdout, "Message completed!\n");
-	return 0;
-}
+// int main() {
+// 	llhttp_t parser;
+// 	llhttp_settings_t settings;
 
-int main() {
-	llhttp_t parser;
-	llhttp_settings_t settings;
+// 	/*Initialize user callbacks and settings */
+// 	llhttp_settings_init(&settings);
 
-	/*Initialize user callbacks and settings */
-	llhttp_settings_init(&settings);
+// 	/*Set user callback */
+// 	settings.on_message_complete = handle_on_message_complete;
 
-	/*Set user callback */
-	settings.on_message_complete = handle_on_message_complete;
+// 	/*Initialize the parser in HTTP_BOTH mode, meaning that it will select between
+// 	*HTTP_REQUEST and HTTP_RESPONSE parsing automatically while reading the first
+// 	*input.
+// 	*/
+// 	llhttp_init(&parser, HTTP_BOTH, &settings);
 
-	/*Initialize the parser in HTTP_BOTH mode, meaning that it will select between
-	*HTTP_REQUEST and HTTP_RESPONSE parsing automatically while reading the first
-	*input.
-	*/
-	llhttp_init(&parser, HTTP_BOTH, &settings);
+// 	/*Parse request! */
+// 	const char* request = "GET / HTTP/1.1\r\n\r\n";
+// 	int request_len = strlen(request);
 
-	/*Parse request! */
-	const char* request = "GET / HTTP/1.1\r\n\r\n";
-	int request_len = strlen(request);
-
-	enum llhttp_errno err = llhttp_execute(&parser, request, request_len);
-	if (err == HPE_OK) {
-		fprintf(stdout, "Successfully parsed!\n");
-	} else {
-		fprintf(stderr, "Parse error: %s %s\n", llhttp_errno_name(err), llhttp_get_error_reason(&parser));
-	}
-}
+// 	enum llhttp_errno err = llhttp_execute(&parser, request, request_len);
+// 	if (err == HPE_OK) {
+// 		fprintf(stdout, "Successfully parsed!\n");
+// 	} else {
+// 		fprintf(stderr, "Parse error: %s %s\n", llhttp_errno_name(err), llhttp_get_error_reason(&parser));
+// 	}
+// }
