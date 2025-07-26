@@ -55,50 +55,6 @@ void FileUtilTest2()
 
 void DateManagerTest()
 {
-    cloud_backup::DataManager::ptr dm = cloud_backup::DataManager::GetInstance();
-    // cloud_backup::BackupInfo::ptr info1 = cloud_backup::BackupInfo::NewBackupInfo("./makefile");
-    // cloud_backup::BackupInfo::ptr info2 = cloud_backup::BackupInfo::NewBackupInfo("./bundle.h");
-    // cloud_backup::BackupInfo::ptr info3 = cloud_backup::BackupInfo::NewBackupInfo("./httplib.h");
-    // if (info1)
-    //     dm->Insert(*info1);
-    // if (info2)
-    //     dm->Insert(*info2);
-    // if (info3)
-    //     dm->Insert(*info3);
-    std::vector<cloud_backup::BackupInfo> infos;
-    dm->GetAll(&infos);
-    for (auto &info : infos)
-    {
-        std::cout << "File: " << info._filename << std::endl;
-        std::cout << "Size: " << info._fsize << std::endl;
-        std::cout << "Last Access Time: " << info._atime << std::endl;
-        std::cout << "Last Modify Time: " << info._mtime << std::endl;
-        std::cout << "Compressed: " << (info._compress_flag ? "Yes" : "No") << std::endl;
-    }
-    // dm->Delete("makefile");
-    // dm->GetAll(&infos);
-    // std::cout << "After deletion:-----------------------------------" << std::endl;
-    // for (auto &info : infos)
-    // {
-    //     std::cout << "File: " << info._filename << std::endl;
-    //     std::cout << "Size: " << info._fsize << std::endl;
-    //     std::cout << "Last Access Time: " << info._atime << std::endl;
-    //     std::cout << "Last Modify Time: " << info._mtime << std::endl;
-    //     std::cout << "Compressed: " << (info._compress_flag ? "Yes" : "No") << std::endl;
-    // }
-    cloud_backup::BackupInfo::ptr pinfo = dm->GetOneByFileName("bundle.h");
-    if (pinfo != nullptr)
-    {
-        std::cout << "Select File: " << pinfo->_filename << std::endl;
-        std::cout << "Size: " << pinfo->_fsize << std::endl;
-        std::cout << "Last Access Time: " << pinfo->_atime << std::endl;
-        std::cout << "Last Modify Time: " << pinfo->_mtime << std::endl;
-        std::cout << "Compressed: " << (pinfo->_compress_flag ? "Yes" : "No") << std::endl;
-    }
-    else
-    {
-        std::cout << "File not found." << std::endl;
-    }
 }
 
 int main(int argc, char *argv[])
@@ -111,7 +67,7 @@ int main(int argc, char *argv[])
 
     // FileUtilTest1();
 
-    // FileUtilTest2();
+    FileUtilTest2();
 
     // DateManagerTest();
 

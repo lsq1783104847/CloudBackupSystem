@@ -113,6 +113,12 @@ namespace cloud_backup
             }
             ifs.seekg(pos, std::ios::beg);
             len = len < fsize - pos ? len : fsize - pos;
+            if (len == 0)
+            {
+                *buffer = "";
+                ifs.close();
+                return true;
+            }
             char buff[len] = {0};
             ifs.read(buff, len);
             if (!ifs.good())
