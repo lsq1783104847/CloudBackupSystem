@@ -1,10 +1,11 @@
 {
-    "server_ip": "0.0.0.0",
     "server_port": 9999,
     "log_filepath": "./log/file.log",
     "roll_file_size": 10485760,
     "LRU_file_capacity": 10,
     "LRU_file_content_size": 10485760,
+    "listen_queue_size": 32,
+    "epoll_events_size": 64,
     "data_manager_filepath": "./wwwroot/data_manager_file",
     "backup_file_dir": "./wwwroot/backup_file_dir",
     "upload_url_prefix": "/upload",

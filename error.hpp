@@ -13,6 +13,7 @@ enum
     BIND_SOCKET_ERROR,       // 绑定socket失败
     LISTEN_SOCKET_ERROR,     // 监听socket失败
     NEW_OBJECT_ERROR,        // 创建对象失败
+    EPOLL_CREATE_ERROR,      // 创建epoll失败
 };
 
 #endif

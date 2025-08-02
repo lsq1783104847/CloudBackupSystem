@@ -1,9 +1,8 @@
-#include "cloud_backup.hpp"
+#include "cloud_backup_server.hpp"
 
 void ConfigTest()
 {
     auto p = cloud_backup::Config::GetInstance();
-    std::cout << p->GetServerIp() << std::endl;
     std::cout << p->GetServerPort() << std::endl;
 }
 
@@ -37,24 +36,36 @@ void FileUtilTest1()
     std::cout << file.GetFilePath() << std::endl;
     std::cout << file.GetFileName() << std::endl;
     std::cout << file.GetFileSize() << std::endl;
-    std::cout << file.LastAccTime() << std::endl;
-    std::cout << file.LastModTime() << std::endl;
 }
 
 void FileUtilTest2()
 {
-    cloud_backup::FileUtil directy("./a/b");
-    std::cout << directy.Exists() << std::endl;
-    directy.CreateDirectories();
-    std::cout << directy.Exists() << std::endl;
+    cloud_backup::FileUtil file("./test.txt");
+    // std::string buffer;
+    // file.GetContent(&buffer);
+    // std::cout << buffer << std::endl;
+
+    // file.AppendContent("hello world");
+
+    // file.Clear();
+}
+
+void FileUtilTest3()
+{
+    // cloud_backup::FileUtil directy("./a/b");
+    // directy.CreateDirectories();
+
     std::vector<cloud_backup::FileUtil> files;
-    directy.ScanDirectory(&files);
+    cloud_backup::FileUtil newfile("./a/b/test");
+    newfile.ScanDirectory(&files);
     for (auto &file : files)
         std::cout << file.GetFilePath() << std::endl;
+    newfile.RemoveRegularFile();
 }
 
 void DateManagerTest()
 {
+    
 }
 
 int main(int argc, char *argv[])
@@ -67,9 +78,11 @@ int main(int argc, char *argv[])
 
     // FileUtilTest1();
 
-    FileUtilTest2();
+    // FileUtilTest2();
 
-    // DateManagerTest();
+    // FileUtilTest3();
+
+    DateManagerTest();
 
     return 0;
 }

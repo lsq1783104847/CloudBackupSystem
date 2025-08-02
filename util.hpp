@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/epoll.h>
 #include <fcntl.h>
 #include <memory>
 #include <string>
@@ -20,7 +21,6 @@
 
 namespace cloud_backup
 {
-#define BUNDLE_COMPRESS_TYPE bundle::LZIP
     namespace fs = std::filesystem;
     class FileUtil
     {
@@ -43,30 +43,6 @@ namespace cloud_backup
             }
             return st.st_size;
         }
-        // 获取文件最后一次修改时间，失败返回-1
-        time_t LastModTime()
-        {
-            struct stat st;
-            if (stat(_filepath.c_str(), &st) == -1)
-            {
-                int err = errno;
-                LOG_ERROR("stat error:%d  message:%s", err, strerror(err));
-                return -1;
-            }
-            return st.st_mtime;
-        }
-        // 获取文件最后一次访问时间，失败返回-1
-        time_t LastAccTime()
-        {
-            struct stat st;
-            if (stat(_filepath.c_str(), &st) == -1)
-            {
-                int err = errno;
-                LOG_ERROR("stat error:%d  message:%s", err, strerror(err));
-                return -1;
-            }
-            return st.st_atime;
-        }
         // 获取已经转化成绝对路径的文件路径，若传入的路径有问题则返回空串
         std::string GetFilePath()
         {
@@ -75,7 +51,7 @@ namespace cloud_backup
         // 根据路径返回文件名，如果path为根目录或者路径有问题就返回空串
         std::string GetFileName()
         {
-            std::string ret = is_path(_filepath);
+            std::string ret = _filepath;
             if (ret == "" || ret == "/")
             {
                 LOG_ERROR("GetFileName error, file_path is error");
@@ -86,7 +62,7 @@ namespace cloud_backup
             size_t pos = ret.find_last_of('/');
             return ret.substr(pos + 1);
         }
-        // 以二进制的方式获取文件中指定位置开始的指定长度的数据，成功获取后数据放入传入的buffer中，失败则返回false
+        // 以二进制的方式获取文件中指定位置开始的指定长度的数据，成功获取后数据放入传入的buffer中，需要保证文件存在，失败则返回false
         // 若传入的pos+len>=文件大小，那么就获取从pos开始到文件结尾的所有数据，若pos>=文件大小则输出空串
         bool GetContent(std::string *buffer, size_t pos = 0, size_t len = UINT32_MAX)
         {
@@ -133,11 +109,11 @@ namespace cloud_backup
             ifs.close();
             return true;
         }
-        // 追加的向文件中写入内容，失败返回false
-        bool SetContent(const std::string &buffer)
+        // 追加的向文件中写入内容，如果文件不存在会默认创建新文件，失败返回false
+        bool AppendContent(const std::string &buffer)
         {
             std::ofstream ofs;
-            ofs.open(_filepath, std::ios::binary);
+            ofs.open(_filepath, std::ios::binary | std::ios::app);
             if (!ofs.is_open())
             {
                 LOG_ERROR("SetContent error, file open failed");
@@ -153,22 +129,6 @@ namespace cloud_backup
             ofs.close();
             return true;
         }
-        // 将文件内容清空，失败返回false
-        bool Clear()
-        {
-            std::ofstream ofs;
-            ofs.open(_filepath, std::ios::trunc);
-            if (ofs.is_open())
-            {
-                ofs.close();
-                return true;
-            }
-            else
-            {
-                LOG_ERROR("Clear error, file open failed");
-                return false;
-            }
-        }
         // 检测当前文件是否已经存在，若存在则返回true
         bool Exists()
         {
@@ -179,7 +139,25 @@ namespace cloud_backup
             }
             return true;
         }
-        // 将当前的_filepath视为一个目录的路径，尝试创建该目录，失败返回false
+        // 将文件内容清空，需要保证文件是存在的，失败返回false
+        bool Clear()
+        {
+            if (!Exists())
+            {
+                LOG_INFO("Clear error, file not exist");
+                return false;
+            }
+            std::ofstream ofs;
+            ofs.open(_filepath, std::ios::trunc);
+            if (!ofs.is_open())
+            {
+                LOG_ERROR("Clear error, file open failed");
+                return false;
+            }
+            ofs.close();
+            return true;
+        }
+        // 将当前的_filepath视为一个目录的路径，尝试创建该路径上所有不存在的目录，失败返回false
         bool CreateDirectories()
         {
             if (Exists() == true)
@@ -192,12 +170,17 @@ namespace cloud_backup
         // 将当前的_filepath视为一个目录的路径，遍历该目录下的所有普通文件，并将其文件路径通过files参数返回，失败返回false
         bool ScanDirectory(std::vector<FileUtil> *files)
         {
-            files->clear();
-            if (Exists() == false)
+            if (!Exists())
             {
                 LOG_ERROR("ScanDirectory error, file not Exist");
                 return false;
             }
+            if (!fs::is_directory(_filepath))
+            {
+                LOG_ERROR("ScanDirectory error, file is not a directory");
+                return false;
+            }
+            files->clear();
             for (auto &file : fs::directory_iterator(_filepath))
             {
                 if (fs::is_regular_file(file.path()))
@@ -205,12 +188,17 @@ namespace cloud_backup
             }
             return true;
         }
-        // 根据_filepath删除当前文件，失败返回false
-        bool Remove()
+        // 根据_filepath将当前文件视为普通文件并尝试删除，失败返回false
+        bool RemoveRegularFile()
         {
-            if (Exists() == false)
+            if (!Exists())
             {
-                LOG_WARN("Remove error, file:%s not Exist", _filepath.c_str());
+                LOG_INFO("Remove error, file:%s not Exist", _filepath.c_str());
+                return false;
+            }
+            if (!fs::is_regular_file(_filepath))
+            {
+                LOG_WARN("Remove error, file:%s is not a regular file", _filepath.c_str());
                 return false;
             }
             if (fs::remove(_filepath) == false)
@@ -222,16 +210,6 @@ namespace cloud_backup
         }
 
     private:
-        // 根据传入的文件的path路径返回该文件所处的目录
-        // 如果传入的路径有问题就返回空串,如果传入的是根目录则也返回根目录
-        static std::string file_dir(const std::string &path)
-        {
-            std::string ret = is_path(path);
-            if (ret == "")
-                return ret;
-            size_t pos = ret.find_last_of('/'); // 经过is_path()的调用，ret中一定有'/',且除了根目录ret不以'/'结尾
-            return ret.substr(0, pos + 1);
-        }
         // 检查传入的文件路径path是否是个正确的路径,要求正确路径中不能有 "//",如果以"~/"开头就将其转换成家目录
         // 如果是正确路径(绝对路径，相对路径均可)就将其补充完善并返回，如果不是正确路径就返回空字符串
         static std::string is_path(const std::string &path)
@@ -309,6 +287,16 @@ namespace cloud_backup
                 absolute_path.pop_back();
             return absolute_path;
         }
+        // 根据传入的文件的path路径返回该文件所处的目录
+        // 如果传入的路径有问题就返回空串,如果传入的是根目录则也返回根目录
+        static std::string file_dir(const std::string &path)
+        {
+            std::string ret = path_transform(path);
+            if (ret == "")
+                return ret;
+            size_t pos = ret.find_last_of('/'); // 经过path_transform()的调用，ret中一定有'/',且除了根目录ret不以'/'结尾
+            return ret.substr(0, pos + 1);
+        }
 
     private:
         std::string _filepath;
@@ -360,7 +348,6 @@ namespace cloud_backup
 
     class NetSocketUtil
     {
-#define LISTEN_QUEUE_SIZE 32 // listen socket下阻塞等待队列的最大大小
     public:
         NetSocketUtil() : _socket(-1) {}
         ~NetSocketUtil()
@@ -380,43 +367,107 @@ namespace cloud_backup
             _socket = retfd;
             // 设置地址和port为可复用的，解决服务器挂掉短时间内无法以相同的port重启的问题
             int opt = 1;
-            setsockopt(_socket, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt));
+            if (setsockopt(_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1)
+                LOG_ERROR("setsockopt error:%d  message:%s", errno, strerror(errno));
         }
-        void Bind(const sockaddr *addr, socklen_t len)
+        void Bind(uint16_t port)
         {
-            int ret = bind(_socket, addr, len);
-            if (ret == -1)
+            sockaddr_in info;
+            info.sin_family = AF_INET;
+            info.sin_addr.s_addr = INADDR_ANY;
+            info.sin_port = htons(port);
+            if (bind(_socket, (sockaddr *)(&info), sizeof(sockaddr_in)) == -1)
             {
                 LOG_FATAL("bind socket error:%d  message:%s", errno, strerror(errno));
                 exit(BIND_SOCKET_ERROR);
             }
         }
-        void Listen()
+        void Listen(int listen_queue_size)
         {
-            int ret = listen(_socket, LISTEN_QUEUE_SIZE);
-            if (ret == -1)
+            if (listen(_socket, listen_queue_size) == -1)
             {
                 LOG_FATAL("listen socket error:%d  message:%s", errno, strerror(errno));
                 exit(LISTEN_SOCKET_ERROR);
             }
         }
-        int Accept(sockaddr *addr, socklen_t *len)
+        int Accept(sockaddr *addr = nullptr, socklen_t *len = nullptr)
         {
             int retfd = accept(_socket, addr, len);
             if (retfd == -1)
                 LOG_WARN("accept error:%d  message:%s", errno, strerror(errno));
             return retfd;
         }
-        int Connect(const sockaddr *addr, socklen_t len)
+
+    private:
+        int _socket;
+    };
+
+    class EpollUtil
+    {
+    public:
+        EpollUtil()
         {
-            int ret = connect(_socket, addr, len);
-            if (ret == -1)
-                LOG_WARN("connect to server fail:%d  message:%s", errno, strerror(errno));
+            _epollfd = epoll_create1(EPOLL_CLOEXEC);
+            if (_epollfd == -1)
+                exit(EPOLL_CREATE_ERROR);
+        }
+        ~EpollUtil() { close(_epollfd); }
+
+        bool EpollAdd(int fd, uint32_t events)
+        {
+            if (EpollAddOrMod(fd, events, EPOLL_CTL_ADD) == -1)
+            {
+                LOG_ERROR("EpollAdd error:%d  message:%s", errno, strerror(errno));
+                return false;
+            }
+            return true;
+        }
+        bool EpollMod(int fd, uint32_t events)
+        {
+            if (EpollAddOrMod(fd, events, EPOLL_CTL_MOD) == -1)
+            {
+                LOG_ERROR("EpollMod error:%d  message:%s", errno, strerror(errno));
+                return false;
+            }
+            return true;
+        }
+        bool EpollDel(int fd)
+        {
+            if (epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr) == -1)
+            {
+                LOG_ERROR("EpollDel error:%d  message:%s", errno, strerror(errno));
+                return false;
+            }
+            return true;
+        }
+        int EpollBlockWait(epoll_event *events, int maxevents)
+        {
+            if (events == nullptr || maxevents <= 0)
+            {
+                LOG_ERROR("EpollWait error, parameter is error");
+                return -1;
+            }
+            int ret = epoll_wait(_epollfd, events, maxevents, -1);
+            if (ret > 0)
+                LOG_INFO("%d events are ready", ret);
+            else if (ret == 0)
+                LOG_INFO("EpollWait timeout");
+            else
+                LOG_ERROR("EpollWait error:%d  message:%s", errno, strerror(errno));
             return ret;
         }
 
     private:
-        int _socket;
+        int EpollAddOrMod(int fd, uint32_t events, int op)
+        {
+            struct epoll_event ee;
+            ee.events = events;
+            ee.data.fd = fd;
+            return epoll_ctl(_epollfd, op, fd, &ee);
+        }
+
+    private:
+        int _epollfd;
     };
 
     // 使当前进程守护进程化
