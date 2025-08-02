@@ -65,7 +65,34 @@ void FileUtilTest3()
 
 void DateManagerTest()
 {
-    
+    cloud_backup::DataManager::ptr dmp = cloud_backup::DataManager::GetInstance();
+    dmp->Register("test1");
+    dmp->Register("test2");
+    dmp->Register("test3");
+    dmp->Register("test4");
+    dmp->Deregister("test4");
+    dmp->Insert("test1", 1029);
+    dmp->Insert("test2", 10290);
+    dmp->Insert("test3", 1028);
+    auto p = dmp->GetFileInfoNode("test1");
+    auto s = dmp->GetFileSize("test2");
+    std::cout << p->_info._filename << "——" << s << "——" << p->_info._time << "\n";
+    std::vector<cloud_backup::BackupInfoNode> infos;
+    dmp->GetAllBackupInfo(&infos);
+    for (auto &e : infos)
+        std::cout << e._filename << "——" << e._size << "——" << e._time << "\n";
+    std::cout << dmp->GetFilePreContent("test1") << "\n";
+    dmp->PutFilePreContent("test1", "hello world");
+    std::cout << dmp->GetFilePreContent("test1") << "\n";
+    dmp->PutFilePreContent("test2", "thank you");
+    std::cout << dmp->GetFilePreContent("test1") << "\n";
+    std::cout << dmp->GetFilePreContent("test2") << "\n";
+    dmp->PutFilePreContent("test3", "you are welcome");
+    std::cout << dmp->GetFilePreContent("test1") << "\n";
+    std::cout << dmp->GetFilePreContent("test2") << "\n";
+    std::cout << dmp->GetFilePreContent("test3") << "\n";
+
+    dmp->Delete("test1");
 }
 
 int main(int argc, char *argv[])

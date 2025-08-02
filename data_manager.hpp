@@ -98,8 +98,10 @@ namespace cloud_backup
             // 将链表中的指定节点移出链表
             bool Remove(DataManagerNode *node)
             {
-                if (node == nullptr || node->_next == nullptr || node->_prev == nullptr)
+                if (node == nullptr)
                     return false;
+                if (node->_next == nullptr || node->_prev == nullptr)
+                    return true;
                 node->_prev->_next = node->_next;
                 node->_next->_prev = node->_prev;
                 node->_file_pre_content.clear();
@@ -374,14 +376,20 @@ namespace cloud_backup
                 else
                     backup_files.insert(filename);
             }
+            // 删除不存在的文件的记录
+            std::vector<std::string> not_backeup_files;
             for (auto &[filename, node] : _hash)
             {
                 if (backup_files.find(filename) == backup_files.end())
                 {
                     LOG_WARN("DataManager file verification error, file not found in backup directory: %s", filename.c_str());
-                    _hash.erase(filename); // 删除不存在的文件记录
-                    _is_dirty = true;
+                    not_backeup_files.push_back(filename);
                 }
+            }
+            for (auto &filename : not_backeup_files)
+            {
+                _hash.erase(filename);
+                _is_dirty = true;
             }
             LOG_INFO("DataManager VerifyFileLegality Succeed");
         }
@@ -397,11 +405,14 @@ namespace cloud_backup
                                             { return _is_dirty; });
                     for (const auto &[filename, node] : _hash)
                     {
-                        Json::Value item;
-                        item["filename"] = node->_info._filename;
-                        item["size"] = static_cast<Json::Int64>(node->_info._size);
-                        item["time"] = static_cast<Json::Int64>(node->_info._time);
-                        root.append(item);
+                        if (IsValidFile(filename) == true)
+                        {
+                            Json::Value item;
+                            item["filename"] = node->_info._filename;
+                            item["size"] = static_cast<Json::Int64>(node->_info._size);
+                            item["time"] = static_cast<Json::Int64>(node->_info._time);
+                            root.append(item);
+                        }
                     }
                     _is_dirty = false;
                 }

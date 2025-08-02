@@ -8,7 +8,7 @@ namespace cloud_backup
     class Config
     {
     private:
-        const std::string _config_file_path = "./cloud_backup.cnf";
+        const std::string _config_file_path = "./config.json";
 
     public:
         ~Config() {}

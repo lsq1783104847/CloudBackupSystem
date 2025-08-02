@@ -82,7 +82,7 @@ namespace cloud_backup
             }
             if (pos >= fsize)
             {
-                LOG_INFO("GetContent error, pos more than file size");
+                LOG_INFO("GetContent warning, pos more than file size");
                 *buffer = "";
                 ifs.close();
                 return true;
