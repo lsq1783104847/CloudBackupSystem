@@ -1,7 +1,7 @@
 #ifndef CLOUD_BACKUP_SERVER_HPP
 #define CLOUD_BACKUP_SERVER_HPP
 
-#include <functional>
+#include <atomic>
 #include "util.hpp"
 #include "config.hpp"
 #include "data_manager.hpp"
@@ -9,18 +9,36 @@
 
 namespace cloud_backup
 {
-    struct Channel
+    struct HTTPConnection
     {
-        using func_t = std::function<void()>;
-        using ptr = std::shared_ptr<Channel>;
-        Channel(int fd, uint32_t envents) : _fd(fd), _envents(envents) {}
-        ~Channel() { close(_fd); }
-        int _fd;
-        uint32_t _envents;
-        std::string _inbuffer;
-        std::string _outbuffer;
-        func_t _reader;
-        func_t _writer;
+        using ptr = std::shared_ptr<HTTPConnection>;
+        HTTPConnection(int fd) : _fd(fd)
+        {
+            llhttp_init(&_parser, HTTP_REQUEST, nullptr);
+            _parser.data = this; // 设置回调函数的上下文
+        }
+        ~HTTPConnection()
+        {
+            if (_fd != -1)
+                close(_fd);
+        }
+        void Reader()
+        {
+        }
+        void Writer()
+        {
+        }
+        void Excepter()
+        {
+        }
+        int _fd = -1;
+        std::atomic<bool> _is_connected = true;
+        llhttp_t _parser;
+        std::string _request_buffer;
+        std::string _response_buffer;
+
+        static std::unordered_map<int, HTTPConnection::ptr> _connections;
+        static std::mutex _connections_mutex;
     };
 
     class CloudBackupServer
@@ -71,7 +89,7 @@ namespace cloud_backup
             _socket.Listen(Config::GetInstance()->GetListenQueueSize());
             LOG_INFO("CloudBackupServer Start Listen");
         }
-        // 
+        //
         void Dispatcher()
         {
             while (true)
@@ -81,14 +99,61 @@ namespace cloud_backup
                     LOG_ERROR("EpollBlockWait ERROR");
                 else if (n == 0)
                     LOG_INFO("EpollBlockWait Timeout");
-                else if(n > 0)
+                else if (n > 0)
                 {
-                    for(int pos = 0;pos < n;pos++)
+                    for (int pos = 0; pos < n; pos++)
                     {
-                        
+                        if (_events[pos].data.fd == _socket.GetSocketet())
+                        {
+                            if (_events[pos].events & EPOLLIN)
+                                Accepter();
+                        }
+                        else
+                        {
+                            auto it = HTTPConnection::_connections.find(_events[pos].data.fd);
+                            if (it != HTTPConnection::_connections.end())
+                            {
+                                if (_events[pos].events & EPOLLIN)
+                                    it->second->Reader();
+                                if (_events[pos].events & EPOLLOUT)
+                                    it->second->Writer();
+                            }
+                            else
+                            {
+                                LOG_ERROR("Connection not found for fd: %d", _events[pos].data.fd);
+                                continue;
+                            }
+                        }
                     }
                 }
             }
+        }
+        void Accepter()
+        {
+            std::string client_ip;
+            uint16_t client_port;
+            int new_fd = _socket.Accept(&client_ip, &client_port);
+            if (new_fd == -1)
+            {
+                LOG_WARN("Accepter ERROR");
+                return;
+            }
+            LOG_INFO("New connection accepted, client_ip:%s client_port:%d new_fd:%d", client_ip.c_str(), client_port, new_fd);
+            if (_epoller.EpollAdd(new_fd, EPOLLIN | EPOLLOUT | EPOLLET) == false)
+            {
+                LOG_WARN("EpollAdd ERROR");
+                close(new_fd);
+                return;
+            }
+            std::unique_lock<std::mutex> connections_lock(HTTPConnection::_connections_mutex);
+            HTTPConnection::ptr conn = std::make_shared<HTTPConnection>(new_fd);
+            HTTPConnection::_connections[new_fd] = conn;
+        }
+        void Reader()
+        {
+        }
+        void Writer()
+        {
         }
 
     private:

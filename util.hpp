@@ -390,12 +390,31 @@ namespace cloud_backup
                 exit(LISTEN_SOCKET_ERROR);
             }
         }
-        int Accept(sockaddr *addr = nullptr, socklen_t *len = nullptr)
+        int Accept(std::string *client_ip = nullptr, uint16_t *client_port = nullptr)
         {
-            int retfd = accept(_socket, addr, len);
-            if (retfd == -1)
+            int new_fd = -1;
+            if (client_ip == nullptr && client_port == nullptr)
+                new_fd = accept(_socket, nullptr, nullptr);
+            else
+            {
+                struct sockaddr_in client_addr;
+                socklen_t client_addr_len = sizeof(client_addr);
+                new_fd = accept(_socket, (struct sockaddr *)&client_addr, &client_addr_len);
+                if (new_fd != -1)
+                {
+                    if (client_ip != nullptr)
+                    {
+                        char new_ip[INET_ADDRSTRLEN];
+                        inet_ntop(AF_INET, &client_addr.sin_addr, new_ip, INET_ADDRSTRLEN);
+                        *client_ip = new_ip;
+                    }
+                    if (client_port != nullptr)
+                        *client_port = ntohs(client_addr.sin_port);
+                }
+            }
+            if (new_fd == -1)
                 LOG_WARN("accept error:%d  message:%s", errno, strerror(errno));
-            return retfd;
+            return new_fd;
         }
 
     private:

@@ -4,6 +4,8 @@
     "roll_file_size": 10485760,
     "LRU_file_capacity": 10,
     "LRU_file_content_size": 10485760,
+    "thread_pool_queue_capacity": 1024,
+    "thread_pool_threads_size": 4,
     "listen_queue_size": 32,
     "epoll_events_size": 64,
     "data_manager_filepath": "./wwwroot/data_manager_file",

@@ -28,6 +28,8 @@ namespace cloud_backup
         long long GetRollFileSize() { return _roll_file_size; }
         size_t GetLRUFileCapacity() { return _LRU_file_capacity; }
         long long GetLRUFileContentSize() { return _LRU_file_content_size; }
+        int GetThreadPoolQueueCapacity() { return _thread_pool_queue_capacity; }
+        int GetThreadPoolThreadsSize() { return _thread_pool_threads_size; }
         int GetListenQueueSize() { return _listen_queue_size; }
         int GetEpollEventsSize() { return _epoll_events_size; }
         std::string GetDataManagerFilePath() { return _data_manager_filepath; }
@@ -62,6 +64,8 @@ namespace cloud_backup
             _roll_file_size = root["roll_file_size"].asInt64();
             _LRU_file_capacity = root["LRU_file_capacity"].asUInt();
             _LRU_file_content_size = root["LRU_file_content_size"].asInt64();
+            _thread_pool_queue_capacity = root["thread_pool_queue_capacity"].asInt();
+            _thread_pool_threads_size = root["thread_pool_threads_size"].asInt();
             _listen_queue_size = root["listen_queue_size"].asInt();
             _epoll_events_size = root["epoll_events_size"].asInt();
             _data_manager_filepath = root["data_manager_filepath"].asString();
@@ -79,6 +83,8 @@ namespace cloud_backup
         long long _roll_file_size;          // 日志文件滚动大小，单位为字节
         size_t _LRU_file_capacity;          // LRU存储的热点文件数量
         long long _LRU_file_content_size;   // LRU中缓存的文件的内容大小
+        int _thread_pool_queue_capacity;    // 线程池任务队列容量
+        int _thread_pool_threads_size;      // 线程池中的线程数量
         int _listen_queue_size;             // listen socket下阻塞等待队列的最大大小
         int _epoll_events_size;             // epoll每次wait能够返回的最多事件数
         std::string _data_manager_filepath; // 数据管理器文件路径，存储所有备份文件的属性信息
