@@ -14,6 +14,8 @@ enum
     LISTEN_SOCKET_ERROR,     // 监听socket失败
     NEW_OBJECT_ERROR,        // 创建对象失败
     EPOLL_CREATE_ERROR,      // 创建epoll失败
+    INIT_PIPE_ERROR,         // 初始化管道失败
+    SERVER_START_ERROR,      // 服务器启动失败
 };
 
 #endif

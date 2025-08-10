@@ -5,9 +5,9 @@
 
 namespace cloud_backup
 {
-#define CLOUD_BACKUP_LOGGER_NAME "AsynCloudBackupLogger"   // 日志器名称
+#define CLOUD_BACKUP_LOGGER_NAME "CloudBackupLogger"       // 日志器名称
 #define CLOUD_BACKUP_LOGGER_LEVEL log_system::Level::DEBUG // 日志器输出等级
-#define CLOUD_BACKUP_LOGGER_TYPE log_system::SYNC_LOGGER   // 日志器类型(同步或异步)
+#define CLOUD_BACKUP_LOGGER_TYPE log_system::ASYNC_LOGGER  // 日志器类型(同步或异步)
 
 #define LOG_DEBUG(msg, ...) LOG_SYSTEM_LOG_DEBUG(log_system::get_logger(CLOUD_BACKUP_LOGGER_NAME), msg, ##__VA_ARGS__)
 #define LOG_INFO(msg, ...) LOG_SYSTEM_LOG_INFO(log_system::get_logger(CLOUD_BACKUP_LOGGER_NAME), msg, ##__VA_ARGS__)

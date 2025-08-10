@@ -56,7 +56,6 @@ namespace cloud_backup
                 sem_post(&_free_slots);
                 task();
             }
-            return nullptr;
         }
 
     private:

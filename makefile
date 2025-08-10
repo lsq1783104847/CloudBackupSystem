@@ -5,3 +5,7 @@ cloud_backup_server:cloud_backup_server.cc
 .PHONY:clean
 clean:
 	rm cloud_backup_server
+
+.PHONY:cleanlog
+cleanlog:
+	rm ./log/*.log

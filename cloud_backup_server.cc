@@ -95,54 +95,56 @@ void DateManagerTest()
     dmp->Delete("test1");
 }
 
-// int main(int argc, char *argv[])
-// {
-//     cloud_backup::InitCloudBackupLogger();
-
-//     // ConfigTest();
-
-//     // JsonTest();
-
-//     // FileUtilTest1();
-
-//     // FileUtilTest2();
-
-//     // FileUtilTest3();
-
-//     // DateManagerTest();
-
-//     return 0;
-// }
-
-int handle_on_message_complete(llhttp_t *parser)
+int main(int argc, char *argv[])
 {
-    fprintf(stdout, "Message completed!\n");
+    // cloud_backup::InitCloudBackupLogger();
+
+    // ConfigTest();
+
+    // JsonTest();
+
+    // FileUtilTest1();
+
+    // FileUtilTest2();
+
+    // FileUtilTest3();
+
+    // DateManagerTest();
+
+    cloud_backup::CloudBackupServer cbs(argv[0]);
+
     return 0;
 }
 
-int main()
-{
-    llhttp_t parser;
-    llhttp_settings_t settings;
+// int handle_on_message_complete(llhttp_t *parser)
+// {
+//     fprintf(stdout, "Message completed!\n");
+//     return 0;
+// }
 
-    llhttp_settings_init(&settings);
+// int main()
+// {
+//     llhttp_t parser;
+//     llhttp_settings_t settings;
 
-    settings.on_body = [](llhttp_t *parser, const char *at, size_t len)
-    {
-        fprintf(stdout, "Body: %d:%s\n", (int)len, at);
-        return 0;
-    };
-    settings.on_message_complete = handle_on_message_complete;
+//     llhttp_settings_init(&settings);
 
-    llhttp_init(&parser, HTTP_BOTH, &settings);
+//     settings.on_body = [](llhttp_t *parser, const char *at, size_t len)
+//     {
+//         fprintf(stdout, "Body: %d:%s\n", (int)len, at);
+//         return 0;
+//     };
+//     settings.on_message_complete = handle_on_message_complete;
 
-    /*Parse request! */
-    const char *request = "POST /submit HTTP/1.1\r\nHost: www.example.com\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 16\r\n\r\nname=John";
-    const char *request2 = "&age=20";
-    int request_len = strlen(request);
-    std::cout << request_len << std::endl;
-    enum llhttp_errno err = llhttp_execute(&parser, request, request_len);
-    request_len = strlen(request2);
-    std::cout << request_len << std::endl;
-    err = llhttp_execute(&parser, request2, request_len);
-}
+//     llhttp_init(&parser, HTTP_BOTH, &settings);
+
+//     /*Parse request! */
+//     const char *request = "POST /submit HTTP/1.1\r\nHost: www.example.com\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 16\r\n\r\nname=John";
+//     const char *request2 = "&age=20";
+//     int request_len = strlen(request);
+//     std::cout << request_len << std::endl;
+//     enum llhttp_errno err = llhttp_execute(&parser, request, request_len);
+//     request_len = strlen(request2);
+//     std::cout << request_len << std::endl;
+//     err = llhttp_execute(&parser, request2, request_len);
+// }

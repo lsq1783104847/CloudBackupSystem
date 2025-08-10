@@ -17,6 +17,7 @@
 #include <filesystem>
 #include <thread>
 #include "log.hpp"
+#include "llhttp.h"
 #include "error.hpp"
 
 namespace cloud_backup
@@ -287,6 +288,8 @@ namespace cloud_backup
                 absolute_path.pop_back();
             return absolute_path;
         }
+
+    public:
         // 根据传入的文件的path路径返回该文件所处的目录
         // 如果传入的路径有问题就返回空串,如果传入的是根目录则也返回根目录
         static std::string file_dir(const std::string &path)
@@ -490,7 +493,7 @@ namespace cloud_backup
     };
 
     // 使当前进程守护进程化
-    void Daemon(const std::string &work_path = "/")
+    void Daemon(const std::string &program_path = "/")
     {
         // 让进程不是进程组的组长
         if (fork() > 0)
@@ -508,7 +511,8 @@ namespace cloud_backup
         signal(SIGCHLD, SIG_IGN);
         signal(SIGPIPE, SIG_IGN);
 
-        // 将工作路径改为work_path
+        // 修改工作路径
+        std::string work_path = FileUtil::file_dir(program_path);
         if (chdir(work_path.c_str()) == -1)
         {
             LOG_FATAL("chdir error:%d  message:%s", errno, strerror(errno));
@@ -533,6 +537,23 @@ namespace cloud_backup
         }
         dup2(rfd, 0);
         close(rfd);
+    }
+    // 将传入的fd设置为非阻塞状态(包括读写双端)
+    bool SetNonBlock(int fd)
+    {
+        int flag = fcntl(fd, F_GETFL);
+        if (flag == -1)
+        {
+            LOG_ERROR("SetNonBlock error, fcntl F_GETFL error:%d message:%s", errno, strerror(errno));
+            return false;
+        }
+        flag |= O_NONBLOCK;
+        if (fcntl(fd, F_SETFL, flag) == -1)
+        {
+            LOG_ERROR("SetNonBlock error, fcntl F_SETFL error:%d message:%s", errno, strerror(errno));
+            return false;
+        }
+        return true;
     }
 }
 
