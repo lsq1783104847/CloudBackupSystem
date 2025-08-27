@@ -9,6 +9,7 @@
     "thread_pool_threads_size": 4,
     "listen_queue_size": 32,
     "epoll_events_size": 64,
+    "per_handle_requset_size": 1500,
     "data_manager_filepath": "./wwwroot/data_manager_file",
     "backup_file_dir": "./wwwroot/backup_file_dir",
     "upload_url_prefix": "/upload",

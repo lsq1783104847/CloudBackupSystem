@@ -1,71 +1,14 @@
 #ifndef CLOUD_BACKUP_SERVER_HPP
 #define CLOUD_BACKUP_SERVER_HPP
 
-#include <atomic>
 #include <functional>
 #include "util.hpp"
 #include "config.hpp"
 #include "data_manager.hpp"
-#include "ThreadPool.hpp"
+#include "HTTPconnection.hpp"
 
 namespace cloud_backup
 {
-    using fun_t = std::function<void()>;
-    using TaskThreadPool = ThreadPool<fun_t>;
-    class LLHTTP_Util
-    {
-    private:
-        void handle_on_message_complete() {}
-
-    public:
-        LLHTTP_Util() { llhttp_init(&_parser, HTTP_REQUEST, nullptr); }
-        std::string handler(const std::string &request_data)
-        {
-            std::string response_data;
-
-            return response_data;
-        }
-
-    private:
-        llhttp_t _parser;
-    };
-    struct HTTPConnection
-    {
-        using ptr = std::shared_ptr<HTTPConnection>;
-        HTTPConnection(int net_fd, int write_pipe_fd, const std::string &client_ip, uint16_t client_port)
-            : _net_fd(net_fd), _write_pipe_fd(write_pipe_fd), _client_ip(client_ip), _client_port(client_port) {}
-        static void handler(HTTPConnection::ptr object)
-        {
-            std::string tmp_request_buffer;
-            {
-                std::unique_lock<std::mutex> request_lock(object->_request_mutex);
-                tmp_request_buffer.swap(object->_request_buffer);
-                object->_is_ready_handle = false;
-                object->_request_buffer.clear();
-            }
-            {
-                std::unique_lock<std::mutex> response_lock(object->_response_mutex);
-                object->_response_buffer += tmp_request_buffer;
-            }
-            if (object->_net_fd != -1)
-            {
-                std::string tmp = to_string(object->_net_fd) + ",";
-                write(object->_write_pipe_fd, tmp.c_str(), tmp.size());
-            }
-        }
-
-        std::atomic<int> _net_fd;
-        const int _write_pipe_fd;
-        std::string _client_ip;
-        uint16_t _client_port;
-        LLHTTP_Util _parser;
-        std::atomic<bool> _is_ready_handle = false;
-        std::string _request_buffer;
-        std::mutex _request_mutex;
-        std::string _response_buffer;
-        std::mutex _response_mutex;
-    };
-
     class CloudBackupServer
     {
 

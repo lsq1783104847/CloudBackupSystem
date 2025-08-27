@@ -28,6 +28,20 @@ namespace cloud_backup
             }
             sem_post(&_ready_tasks);
         }
+        bool try_push(const Task &task)
+        {
+            if (sem_trywait(&_free_slots) == 0)
+            {
+                {
+                    std::unique_lock<std::mutex> productor_lock(_productor_mutex);
+                    _task_queue[_productor_pos++] = task;
+                    _productor_pos %= _task_queue_capacity;
+                }
+                sem_post(&_ready_tasks);
+                return true;
+            }
+            return false;
+        }
 
     private:
         ThreadPool(int threads_size, int task_pool_capacity) : _task_queue_capacity(task_pool_capacity),
@@ -50,7 +64,8 @@ namespace cloud_backup
                 sem_wait(&_ready_tasks);
                 {
                     std::unique_lock<std::mutex> consumer_lock(_consumer_mutex);
-                    task = _task_queue[_consumer_pos++];
+                    task = _task_queue[_consumer_pos];
+                    _task_queue[_consumer_pos++] = Task();
                     _consumer_pos %= _task_queue_capacity;
                 }
                 sem_post(&_free_slots);
