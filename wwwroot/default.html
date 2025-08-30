@@ -212,7 +212,7 @@
 		// 从后端 API 加载文件列表
 		async function loadFileList() {
 			try {
-				const res = await fetch('${baseUrl}/api/files'); // 后端 API 地址
+				const res = await fetch('${baseUrl}/api/GetBackupFiles'); // 后端 API 地址
 				const data = await res.json();
 				allFiles = data.files || [];
 				renderFileTable();
@@ -356,13 +356,12 @@
 
 		// ✅ 新增：删除文件函数
 		async function deleteFile(filename) {
-			if (!confirm(`确定要删除文件 "${filename}" 吗？`)) {
-				return;
-			}
+			if (!confirm(`确定要删除文件 "${filename}" 吗？`)) return;
 
 			try {
-				const response = await fetch(`${baseUrl}/api/files/${encodeURIComponent(filename)}`, {
-					method: 'DELETE', // 使用 DELETE 请求删除指定文件
+				// 直接使用 /delete/filename 格式，不需要冒号
+				const response = await fetch(`${baseUrl}/delete/${encodeURIComponent(filename)}`, {
+					method: 'DELETE',
 				});
 
 				if (response.ok) {

@@ -306,7 +306,7 @@ namespace cloud_backup
             if (filename.empty())
                 return false;
             for (auto ch : filename)
-                if (ch == '/')
+                if (ch == '/' || ch == '"')
                     return false;
             return true;
         }

@@ -20,7 +20,7 @@ namespace cloud_backup
             Daemon(program_path);
             // 读取配置文件修改日志器的落地方向
             auto config = Config::GetInstance();
-            if (ModifyCloudBackupLoggerSinks(config->GetLogFilePath()) == false)
+            if (ModifyCloudBackupLoggerSinks(config->GetLogFilePath(), config->GetRollFileSize()) == false)
             {
                 LOG_ERROR("ModifyCloudBackupLoggerSinks error, exit");
                 exit(LOAD_CONFIG_FILE_ERROR);
