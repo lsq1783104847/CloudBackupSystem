@@ -33,13 +33,9 @@ namespace cloud_backup
         int GetThreadPoolThreadsSize() { return _thread_pool_threads_size; }
         int GetListenQueueSize() { return _listen_queue_size; }
         int GetEpollEventsSize() { return _epoll_events_size; }
-        int GetPerHandleRequsetSize() { return _per_handle_requset_size; }
+        size_t GetPerHandleRequestSize() { return _per_handle_request_size; }
         std::string GetDataManagerFilePath() { return _data_manager_filepath; }
         std::string GetBackupFileDir() { return _backup_file_dir; }
-        std::string GetUploadUrlPrefix() { return _upload_url_prefix; }
-        std::string GetShowListUrlPrefix() { return _showlist_url_prefix; }
-        std::string GetDownloadUrlPrefix() { return _download_url_prefix; }
-        std::string GetDeleteUrlPrefix() { return _delete_url_prefix; }
 
     private:
         Config() { ReadConfigFile(); }
@@ -71,13 +67,9 @@ namespace cloud_backup
             _thread_pool_threads_size = root["thread_pool_threads_size"].asInt();
             _listen_queue_size = root["listen_queue_size"].asInt();
             _epoll_events_size = root["epoll_events_size"].asInt();
-            _per_handle_requset_size = root["per_handle_requset_size"].asInt();
+            _per_handle_request_size = root["per_handle_request_size"].asUInt();
             _data_manager_filepath = root["data_manager_filepath"].asString();
             _backup_file_dir = root["backup_file_dir"].asString();
-            _upload_url_prefix = root["upload_url_prefix"].asString();
-            _showlist_url_prefix = root["showlist_url_prefix"].asString();
-            _download_url_prefix = root["download_url_prefix"].asString();
-            _delete_url_prefix = root["delete_url_prefix"].asString();
             return true;
         }
 
@@ -92,13 +84,9 @@ namespace cloud_backup
         int _thread_pool_threads_size;      // 线程池中的线程数量
         int _listen_queue_size;             // listen socket下阻塞等待队列的最大大小
         int _epoll_events_size;             // epoll每次wait能够返回的最多事件数
-        int _per_handle_requset_size;       // 每次处理请求的最大字节数
+        size_t _per_handle_request_size;    // 每次处理请求的最大字节数
         std::string _data_manager_filepath; // 数据管理器文件路径，存储所有备份文件的属性信息
         std::string _backup_file_dir;       // 备份文件存储目录
-        std::string _upload_url_prefix;     // 文件上传请求的url前缀
-        std::string _showlist_url_prefix;   // 文件列表展示请求的url前缀
-        std::string _download_url_prefix;   // 文件下载请求的url前缀
-        std::string _delete_url_prefix;     // 文件删除请求的url前缀
     };
 }
 #endif

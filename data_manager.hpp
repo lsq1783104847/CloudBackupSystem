@@ -122,28 +122,51 @@ namespace cloud_backup
     public:
         using ptr = std::shared_ptr<DataManager>;
         ~DataManager() { _file_storage_thread.join(); }
-        // 向文件管理对象中注册一个将要上传的文件，后序不允许同名文件的注册
+        // 向文件管理对象中注册一个将要上传的文件，如果文件不存在会在磁盘的对应目录下创建该文件，如果文件存在会清空文件，后序不允许同名文件的注册
         bool Register(const std::string &filename)
         {
             std::unique_lock<std::shared_mutex> write_lock(_rwlock);
             if (_hash.find(filename) != _hash.end())
             {
-                LOG_INFO("Register error, file already exists: %s", filename.c_str());
+                LOG_INFO("Register error, file already register: %s", filename.c_str());
+                return false;
+            }
+            if (!FileUtil::check_filename(filename))
+                return false;
+            std::string target_file_dir = Config::GetInstance()->GetBackupFileDir();
+            if (target_file_dir.back() != '/')
+                target_file_dir += '/';
+            FileUtil target_file(target_file_dir + filename);
+            if (target_file.Exists() && target_file.Clear() == false)
+            {
+                LOG_WARN("Register error, file already exists, clear file fail: %s", filename.c_str());
+                return false;
+            }
+            else if (!target_file.Exists() && !target_file.AppendContent(""))
+            {
+                LOG_WARN("Register error, create target file failed: %s", filename.c_str());
                 return false;
             }
             _hash[filename] = nullptr;
             return true;
         }
-        // 注销一个文件备份信息，文件名必须是之前已经注册过并且未上传成功的
+        // 注销一个文件备份信息，文件名必须是之前已经注册过并且未上传成功的，如果文件此时依然存在于磁盘上会同步将磁盘上的文件删除
         bool Deregister(const std::string &filename)
         {
             std::unique_lock<std::shared_mutex> write_lock(_rwlock);
             if (_hash.find(filename) == _hash.end())
-            {
                 LOG_WARN("Deregister error, file not found: %s", filename.c_str());
+            else
+                _hash.erase(filename);
+            std::string target_file_dir = Config::GetInstance()->GetBackupFileDir();
+            if (target_file_dir.back() != '/')
+                target_file_dir += '/';
+            FileUtil target_file(target_file_dir + filename);
+            if (target_file.Exists() && target_file.RemoveRegularFile() == false)
+            {
+                LOG_ERROR("Deregister error, file:%s RemoveRegularFile failed", filename.c_str());
                 return false;
             }
-            _hash.erase(filename);
             return true;
         }
         // 将上传成功的文件加入DataManager中管理，文件必须在之前已经通过Register注册过
@@ -174,7 +197,7 @@ namespace cloud_backup
             _file_storage_cond.notify_all();
             return true;
         }
-        // 从DataManager中删除文件备份信息的记录，并同步清除LRU中的数据以及将磁盘上的文件删除，文件必须是之前已经Insert过上传成功的
+        // 从DataManager中删除文件备份信息的记录，并同步清除LRU中的数据，如果文件此时依然存在于磁盘上会同步将磁盘上的文件删除，文件必须是之前已经Insert过上传成功的
         bool Delete(const std::string &filename)
         {
             std::unique_lock<std::shared_mutex> write_lock(_rwlock);
@@ -192,21 +215,20 @@ namespace cloud_backup
             std::string target_file_dir = Config::GetInstance()->GetBackupFileDir();
             if (target_file_dir.back() != '/')
                 target_file_dir += '/';
+            bool ret_value = true;
             FileUtil target_file(target_file_dir + filename);
             {
                 std::unique_lock<std::shared_mutex> file_write_lock(_hash[filename]->_rwlock);
-                if (target_file.Exists() == false)
-                    LOG_INFO("delete target file:%s failed, target file not exist", filename.c_str());
-                else
+                if (target_file.Exists() && target_file.RemoveRegularFile() == false)
                 {
-                    if (target_file.RemoveRegularFile() == false)
-                        LOG_ERROR("delete target file:%s failed, RemoveRegularFile failed", filename.c_str());
+                    LOG_ERROR("delete target file:%s failed, RemoveRegularFile failed", filename.c_str());
+                    ret_value = false;
                 }
             }
             _hash.erase(filename);
             _is_dirty = true;
             _file_storage_cond.notify_all();
-            return true;
+            return ret_value;
         }
         // 根据文件名获取文件管理信息节点，失败返回nullptr，因为返回的是智能指针所以即使DataManager内部的数据被清理掉了也不会导致非法访问
         DataManagerNode::ptr GetFileInfoNode(const std::string &filename)
@@ -272,8 +294,10 @@ namespace cloud_backup
             return _hash[filename]->_file_pre_content;
         }
         // 将文件起始的部分内容放入LRU中缓存，如果已经存在则将其更新为最近一次访问的数据
-        bool PutFilePreContent(const std::string &filename, const std::string &file_pre_content)
+        bool PutFilePreContent(const std::string &filename, std::string file_pre_content)
         {
+            if (file_pre_content.size() > Config::GetInstance()->GetLRUFileContentSize())
+                file_pre_content = file_pre_content.substr(0, Config::GetInstance()->GetLRUFileContentSize());
             std::shared_lock<std::shared_mutex> read_lock(_rwlock);
             if (IsValidFile(filename) == false)
             {

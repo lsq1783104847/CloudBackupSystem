@@ -20,6 +20,8 @@ namespace cloud_backup
         }
         void push(const Task &task)
         {
+            if (!task)
+                return;
             sem_wait(&_free_slots);
             {
                 std::unique_lock<std::mutex> productor_lock(_productor_mutex);
@@ -30,6 +32,8 @@ namespace cloud_backup
         }
         bool try_push(const Task &task)
         {
+            if (!task)
+                return false;
             if (sem_trywait(&_free_slots) == 0)
             {
                 {

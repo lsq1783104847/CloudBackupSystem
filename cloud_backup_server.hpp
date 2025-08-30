@@ -1,7 +1,6 @@
 #ifndef CLOUD_BACKUP_SERVER_HPP
 #define CLOUD_BACKUP_SERVER_HPP
 
-#include <functional>
 #include "util.hpp"
 #include "config.hpp"
 #include "data_manager.hpp"
@@ -36,7 +35,7 @@ namespace cloud_backup
         ~CloudBackupServer() { DestoryServer(); }
 
     private:
-        // 初始化服务器，bind port
+        // 初始化服务器，绑定端口，创建管道等
         void InitializeServer()
         {
             int pipefd[2] = {-1, -1};
@@ -162,10 +161,13 @@ namespace cloud_backup
                 close(net_fd);
                 return;
             }
-            HTTPConnection::ptr new_connection = std::make_shared<HTTPConnection>(net_fd, _write_pipe_fd, client_ip, client_port);
+            ++_record_net_fd_use_time[net_fd] %= 10000;
+            std::string net_fd_identifier = std::to_string(net_fd) + "_" + std::to_string(_record_net_fd_use_time[net_fd]);
+            HTTPConnection::ptr new_connection = std::make_shared<HTTPConnection>(net_fd_identifier, _write_pipe_fd, client_ip, client_port);
             _connections[net_fd] = new_connection;
         }
-        // 约定pipe内的数据格式为"fd,fd,fd,...",每个fd之间用逗号分隔，多个工作线程通过pipe告知主线程哪个net_fd有数据需要发送
+        // 约定pipe内的数据格式为"wfd_usetime,rfd_usetime,cfd_usetime,..."如："w12_3"，每个fd之间用逗号分隔，多个工作线程通过pipe告知主线程哪个net_fd有新的事件需要处理，
+        // 'w'表示该net_fd有数据需要发送，'r'表示该net_fd可以继续处理新的数据
         // 读取管道中的数据并放入_read_pipe_buffer中
         void PipeDataReader()
         {
@@ -213,11 +215,24 @@ namespace cloud_backup
                     break;
                 std::string net_fd_str = _read_pipe_buffer.substr(pos, comma_pos - pos);
                 pos = comma_pos + 1;
-                if (net_fd_str.empty())
+                if (net_fd_str.size() < 4)
                     continue;
-                int net_fd = std::stoi(net_fd_str);
-                LOG_INFO("PipeDataHandler INFO, handle net_fd:%d", net_fd);
-                NetWriter(net_fd);
+                char op = net_fd_str[0];
+                std::string net_fd_identifier = net_fd_str.substr(1);
+                int underscore_pos = net_fd_identifier.find_last_of('_');
+                if (underscore_pos == std::string::npos)
+                    continue;
+                int net_fd = std::stoi(net_fd_identifier.substr(0, underscore_pos));
+                int use_time = std::stoi(net_fd_identifier.substr(underscore_pos + 1));
+                if (net_fd < 0 || _connections.find(net_fd) == _connections.end() || use_time != _record_net_fd_use_time[net_fd])
+                    continue;
+                LOG_INFO("PipeDataHandler INFO, handle net_fd:%d, op:%c", net_fd, op);
+                if (op == 'r')
+                    NetReader(net_fd);
+                else if (op == 'w')
+                    NetWriter(net_fd);
+                else if (op == 'c')
+                    NetExcepter(net_fd);
             }
             pos = _read_pipe_buffer.find_last_of(',');
             if (pos != std::string::npos)
@@ -259,9 +274,9 @@ namespace cloud_backup
                     tmp_buffer[read_bytes] = '\0';
                     std::unique_lock<std::mutex> request_lock(connection->_request_mutex);
                     connection->_request_buffer += tmp_buffer;
-                    if (connection->_is_ready_handle == false)
+                    if (connection->_is_processing == false)
                     {
-                        connection->_is_ready_handle = true;
+                        connection->_is_processing = true;
                         TaskThreadPool::GetInstance()->push(std::bind(&HTTPConnection::handler, connection));
                     }
                 }
@@ -327,7 +342,8 @@ namespace cloud_backup
                 LOG_WARN("NetExcepter WARN, net_fd not found in _connections: %d", net_fd);
             else
             {
-                _connections[net_fd]->_net_fd = -1;
+                _connections[net_fd]->_is_closed = true;
+                LOG_INFO("connection close, client ip:%s client_port:%d", _connections[net_fd]->_client_ip.c_str(), _connections[net_fd]->_client_port);
                 _connections.erase(net_fd);
             }
             close(net_fd);
@@ -342,6 +358,7 @@ namespace cloud_backup
         EpollUtil _epoller;
         epoll_event *_events = nullptr;
         int _maxevents = Config::GetInstance()->GetEpollEventsSize();
+        std::unordered_map<int, int> _record_net_fd_use_time;
         std::unordered_map<int, HTTPConnection::ptr> _connections;
     };
 }

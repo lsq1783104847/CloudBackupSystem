@@ -188,7 +188,7 @@
 
 		<!-- 上传新文件 -->
 		<h2>上传新文件</h2>
-		<form action="http://192.168.122.136:9090/upload" method="post" enctype="multipart/form-data">
+		<form action="/upload" method="post" enctype="multipart/form-data">
 			<div class="upload-area">
 				<div class="file-input-wrapper">
 					<input type="file" id="fileInput" name="file" multiple />
@@ -207,11 +207,12 @@
 		let allFiles = [];
 		let currentPage = 1;
 		const pageSize = 3;
+		const baseUrl = window.location.origin;
 
 		// 从后端 API 加载文件列表
 		async function loadFileList() {
 			try {
-				const res = await fetch('http://192.168.122.136:9090/api/files'); // 后端 API 地址
+				const res = await fetch('${baseUrl}/api/files'); // 后端 API 地址
 				const data = await res.json();
 				allFiles = data.files || [];
 				renderFileTable();
@@ -334,7 +335,7 @@
 			const formData = new FormData();
 			selectedFiles.forEach(f => formData.append('file', f));
 
-			fetch('http://192.168.122.136:9090/upload', {
+			fetch('${baseUrl}/upload', {
 				method: 'POST',
 				body: formData,
 			})
@@ -360,7 +361,7 @@
 			}
 
 			try {
-				const response = await fetch(`http://192.168.122.136:9090/api/files/${encodeURIComponent(filename)}`, {
+				const response = await fetch(`${baseUrl}/api/files/${encodeURIComponent(filename)}`, {
 					method: 'DELETE', // 使用 DELETE 请求删除指定文件
 				});
 

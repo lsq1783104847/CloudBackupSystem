@@ -300,6 +300,16 @@ namespace cloud_backup
             size_t pos = ret.find_last_of('/'); // 经过path_transform()的调用，ret中一定有'/',且除了根目录ret不以'/'结尾
             return ret.substr(0, pos + 1);
         }
+        // 要求传入的filename是一个单纯的的文件名，不能包含'/'，如果是正确的文件名就返回true，否则返回false
+        static bool check_filename(const std::string &filename)
+        {
+            if (filename.empty())
+                return false;
+            for (auto ch : filename)
+                if (ch == '/')
+                    return false;
+            return true;
+        }
 
     private:
         std::string _filepath;
