@@ -62,9 +62,9 @@ namespace cloud_backup
 
         void ThreadRUN()
         {
-            Task task;
             while (1)
             {
+                Task task;
                 sem_wait(&_ready_tasks);
                 {
                     std::unique_lock<std::mutex> consumer_lock(_consumer_mutex);

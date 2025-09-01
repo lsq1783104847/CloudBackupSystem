@@ -11,7 +11,7 @@ namespace cloud_backup
 {
     using fun_t = std::function<void()>;
     using TaskThreadPool = ThreadPool<fun_t>;
-    const std::string SEP = "/r/n";
+    const std::string SEP = "\r\n";
 
     class HTTPConnection
     {
@@ -33,8 +33,8 @@ namespace cloud_backup
             _settings.on_body = static_on_body;
             _settings.on_message_complete = static_on_message_complete;
 
-            _parser.data = this;
             llhttp_init(&_parser, HTTP_REQUEST, &_settings);
+            _parser.data = this;
         }
         ~HTTPConnection() {}
 
@@ -214,7 +214,9 @@ namespace cloud_backup
         }
         int on_url_complete(llhttp_t *parser)
         {
-            int pos = _head_info._request_url.find_first_of('/', 1);
+            size_t pos = std::string::npos;
+            if (_head_info._request_url.size() > 1)
+                pos = _head_info._request_url.find_first_of('/', 1);
             _head_info._request_url_prefix = _head_info._request_url.substr(0, pos);
             if (pos < _head_info._request_url.size())
                 _head_info._request_url_path = _head_info._request_url.substr(pos);
@@ -252,7 +254,7 @@ namespace cloud_backup
         }
         int on_headers_complete(llhttp_t *parser)
         {
-            _head_info._response_version = _head_info._request_version;
+            _head_info._response_version = "HTTP/" + _head_info._request_version;
             if (_head_info._request_method == "GET" && _head_info._request_url_prefix == "/download")
             {
                 _head_info._cur_download_file = _head_info._request_url_path.substr(1);
@@ -578,6 +580,7 @@ namespace cloud_backup
                 handle_size = std::min(object->_request_buffer.size(), handle_size);
                 cur_handle_request = object->_request_buffer.substr(0, handle_size);
             }
+            LOG_INFO("process Request, will handle %zu bytes from net_fd:%s message:%s", handle_size, object->_net_fd_identifier.c_str(), cur_handle_request.c_str());
 
             int err = llhttp_execute(&object->_parser, cur_handle_request.c_str(), cur_handle_request.size());
             if (err != HPE_OK && err != HPE_PAUSED)

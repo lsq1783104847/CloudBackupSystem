@@ -14,8 +14,6 @@ namespace cloud_backup
     public:
         CloudBackupServer(const std::string &program_path)
         {
-            // 初始化日志器
-            cloud_backup::InitCloudBackupLogger();
             // 将进程变成守护进程
             Daemon(program_path);
             // 读取配置文件修改日志器的落地方向
@@ -105,7 +103,7 @@ namespace cloud_backup
                     {
                         if (_events[pos].data.fd == _socket.GetSocketet())
                         {
-                            LOG_INFO("Dispatcher INFO, server accepter fd:%d event ready, ", _events[pos].data.fd);
+                            LOG_INFO("Dispatcher INFO, server accepter fd:%d event ready", _events[pos].data.fd);
                             if (_events[pos].events & EPOLLIN)
                                 Accepter();
                         }
@@ -272,8 +270,9 @@ namespace cloud_backup
                 else if (read_bytes > 0)
                 {
                     tmp_buffer[read_bytes] = '\0';
+                    LOG_INFO("NetReader INFO, read %d bytes from net_fd:%d message:%s", read_bytes, net_fd, tmp_buffer);
                     std::unique_lock<std::mutex> request_lock(connection->_request_mutex);
-                    connection->_request_buffer += tmp_buffer;
+                    connection->_request_buffer += std::string(tmp_buffer);
                     if (connection->_is_processing == false)
                     {
                         connection->_is_processing = true;

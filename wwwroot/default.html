@@ -2,248 +2,248 @@
 <html lang="zh-CN">
 
 <head>
-	<meta charset="UTF-8" />
-	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-	<title>文件下载与上传</title>
-	<style>
-		body {
-			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-			background-color: #f4f7fa;
-			margin: 0;
-			padding: 20px;
-			color: #333;
-		}
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>文件下载与上传</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7fa;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
 
-		.container {
-			max-width: 900px;
-			margin: 0 auto;
-			background: #ffffff;
-			padding: 30px;
-			border-radius: 10px;
-			box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-		}
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
 
-		h1 {
-			text-align: center;
-			color: #2c3e50;
-			margin-bottom: 30px;
-		}
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
 
-		h2 {
-			color: #34495e;
-			border-bottom: 2px solid #3498db;
-			padding-bottom: 5px;
-			margin-top: 30px;
-			margin-bottom: 15px;
-		}
+        h2 {
+            color: #34495e;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 5px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
 
-		table {
-			width: 100%;
-			border-collapse: collapse;
-			margin-bottom: 20px;
-		}
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
 
-		table tr {
-			border-bottom: 1px solid #ddd;
-		}
+        table tr {
+            border-bottom: 1px solid #ddd;
+        }
 
-		table tr:last-child {
-			border-bottom: none;
-		}
+        table tr:last-child {
+            border-bottom: none;
+        }
 
-		table td {
-			padding: 12px;
-		}
+        table td {
+            padding: 12px;
+        }
 
-		table td:nth-child(2),
-		table td:nth-child(3) {
-			text-align: right;
-		}
+        table td:nth-child(2),
+        table td:nth-child(3) {
+            text-align: right;
+        }
 
-		/* 新增：操作列（删除按钮）样式 */
-		table td:nth-child(4) {
-			text-align: left;
-			padding: 12px;
-		}
+        /* 新增：操作列（删除按钮）样式 */
+        table td:nth-child(4) {
+            text-align: left;
+            padding: 12px;
+        }
 
-		.pagination {
-			display: flex;
-			justify-content: center;
-			align-items: center;
-			margin-top: 20px;
-			gap: 5px;
-		}
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20px;
+            gap: 5px;
+        }
 
-		.pagination button {
-			padding: 6px 10px;
-			border: 1px solid #ccc;
-			background: #fff;
-			cursor: pointer;
-			border-radius: 4px;
-		}
+        .pagination button {
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            background: #fff;
+            cursor: pointer;
+            border-radius: 4px;
+        }
 
-		.pagination button:hover:not(:disabled) {
-			background: #f0f0f0;
-		}
+        .pagination button:hover:not(:disabled) {
+            background: #f0f0f0;
+        }
 
-		.pagination button:disabled {
-			opacity: 0.5;
-			cursor: not-allowed;
-		}
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
 
-		.pagination .page-info {
-			margin: 0 10px;
-			font-size: 14px;
-			color: #666;
-		}
+        .pagination .page-info {
+            margin: 0 10px;
+            font-size: 14px;
+            color: #666;
+        }
 
-		form {
-			background: #f8f9fa;
-			padding: 25px;
-			border-radius: 8px;
-			border: 1px solid #e1e8ed;
-			margin-top: 30px;
-		}
+        form {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 8px;
+            border: 1px solid #e1e8ed;
+            margin-top: 30px;
+        }
 
-		.upload-area {
-			margin-bottom: 15px;
-		}
+        .upload-area {
+            margin-bottom: 15px;
+        }
 
-		.file-input-wrapper {
-			position: relative;
-			display: inline-block;
-			cursor: pointer;
-			width: 100%;
-		}
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+            width: 100%;
+        }
 
-		.file-input-wrapper input[type="file"] {
-			position: absolute;
-			left: -9999px;
-		}
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            left: -9999px;
+        }
 
-		.file-input-label {
-			display: block;
-			padding: 12px 20px;
-			background: #3498db;
-			color: white;
-			border-radius: 6px;
-			text-align: center;
-			cursor: pointer;
-			transition: background 0.3s;
-		}
+        .file-input-label {
+            display: block;
+            padding: 12px 20px;
+            background: #3498db;
+            color: white;
+            border-radius: 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
 
-		.file-input-label:hover {
-			background: #2980b9;
-		}
+        .file-input-label:hover {
+            background: #2980b9;
+        }
 
-		.upload-button {
-			display: block;
-			width: 200px;
-			margin: 20px auto;
-			padding: 12px;
-			background: #27ae60;
-			color: white;
-			border: none;
-			border-radius: 6px;
-			font-size: 16px;
-			cursor: pointer;
-			transition: background 0.3s;
-		}
+        .upload-button {
+            display: block;
+            width: 200px;
+            margin: 20px auto;
+            padding: 12px;
+            background: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
 
-		.upload-button:hover {
-			background: #229954;
-		}
+        .upload-button:hover {
+            background: #229954;
+        }
 
-		.file-info {
-			margin-top: 10px;
-			font-size: 14px;
-			color: #666;
-		}
-	</style>
+        .file-info {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
 </head>
 
 <body>
-	<div class="container">
-		<h1>文件下载与上传</h1>
+    <div class="container">
+        <h1>文件下载与上传</h1>
 
-		<!-- 可下载文件列表 -->
-		<h2>可下载文件列表</h2>
-		<table id="fileTable">
-			<thead>
-				<tr>
-					<th style="text-align: left; padding: 12px;">文件名</th>
-					<th style="text-align: right; padding: 12px;">修改时间</th>
-					<th style="text-align: right; padding: 12px;">大小</th>
-					<th style="text-align: left; padding: 12px;">操作</th> <!-- 新增列：操作 -->
-				</tr>
-			</thead>
-			<tbody id="fileTableBody">
-				<!-- JS 动态填充 -->
-			</tbody>
-		</table>
+        <!-- 可下载文件列表 -->
+        <h2>可下载文件列表</h2>
+        <table id="fileTable">
+            <thead>
+                <tr>
+                    <th style="text-align: left; padding: 12px;">文件名</th>
+                    <th style="text-align: right; padding: 12px;">修改时间</th>
+                    <th style="text-align: right; padding: 12px;">大小</th>
+                    <th style="text-align: left; padding: 12px;">操作</th> <!-- 新增列：操作 -->
+                </tr>
+            </thead>
+            <tbody id="fileTableBody">
+                <!-- JS 动态填充 -->
+            </tbody>
+        </table>
 
-		<div class="pagination" id="pagination">
-			<!-- JS 动态生成 -->
-		</div>
+        <div class="pagination" id="pagination">
+            <!-- JS 动态生成 -->
+        </div>
 
-		<!-- 上传新文件 -->
-		<h2>上传新文件</h2>
-		<form action="/upload" method="post" enctype="multipart/form-data">
-			<div class="upload-area">
-				<div class="file-input-wrapper">
-					<input type="file" id="fileInput" name="file" multiple />
-					<label for="fileInput" class="file-input-label">
-						➕ 点击选择文件（可多选）
-					</label>
-				</div>
-				<div class="file-info" id="fileInfo">暂未选择文件</div>
-			</div>
+        <!-- 上传新文件 -->
+        <h2>上传新文件</h2>
+        <form action="/upload" method="post" enctype="multipart/form-data">
+            <div class="upload-area">
+                <div class="file-input-wrapper">
+                    <input type="file" id="fileInput" name="file" multiple />
+                    <label for="fileInput" class="file-input-label">
+                        ➕ 点击选择文件（可多选）
+                    </label>
+                </div>
+                <div class="file-info" id="fileInfo">暂未选择文件</div>
+            </div>
 
-			<button type="submit" class="upload-button">✅ 上传文件</button>
-		</form>
-	</div>
+            <button type="submit" class="upload-button">✅ 上传文件</button>
+        </form>
+    </div>
 
-	<script>
-		let allFiles = [];
-		let currentPage = 1;
-		const pageSize = 3;
-		const baseUrl = window.location.origin;
+    <script>
+        let allFiles = [];
+        let currentPage = 1;
+        const pageSize = 3;
+        const baseUrl = window.location.origin;
 
-		// 从后端 API 加载文件列表
-		async function loadFileList() {
-			try {
-				const res = await fetch('${baseUrl}/api/GetBackupFiles'); // 后端 API 地址
-				const data = await res.json();
-				allFiles = data.files || [];
-				renderFileTable();
-				renderPagination();
-			} catch (err) {
-				console.error('加载文件列表失败:', err);
-				allFiles = [];
-				renderFileTable();
-				renderPagination();
-			}
-		}
+        // 从后端 API 加载文件列表
+        async function loadFileList() {
+            try {
+                const res = await fetch('${baseUrl}/api/GetBackupFiles'); // 后端 API 地址
+                const data = await res.json();
+                allFiles = data.files || [];
+                renderFileTable();
+                renderPagination();
+            } catch (err) {
+                console.error('加载文件列表失败:', err);
+                allFiles = [];
+                renderFileTable();
+                renderPagination();
+            }
+        }
 
-		function getPaginatedFiles() {
-			const start = (currentPage - 1) * pageSize;
-			const end = start + pageSize;
-			return allFiles.slice(start, end);
-		}
+        function getPaginatedFiles() {
+            const start = (currentPage - 1) * pageSize;
+            const end = start + pageSize;
+            return allFiles.slice(start, end);
+        }
 
-		function renderFileTable() {
-			const tbody = document.getElementById('fileTableBody');
-			const files = getPaginatedFiles();
+        function renderFileTable() {
+            const tbody = document.getElementById('fileTableBody');
+            const files = getPaginatedFiles();
 
-			tbody.innerHTML = '';
-			if (files.length === 0) {
-				tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #999;">暂无文件</td></tr>';
-				return;
-			}
+            tbody.innerHTML = '';
+            if (files.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #999;">暂无文件</td></tr>';
+                return;
+            }
 
-			files.forEach(file => {
-				const tr = document.createElement('tr');
-				tr.innerHTML = `
+            files.forEach(file => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
           <td style="text-align: left; padding: 12px;"><a href="/download/${encodeURIComponent(file.name)}" target="_blank">📄 ${file.name}</a></td>
           <td style="text-align: right; padding: 12px;">${file.date}</td>
           <td style="text-align: right; padding: 12px;">${file.size}</td>
@@ -259,129 +259,129 @@
             ">🗑️ 删除</button>
           </td>
         `;
-				tbody.appendChild(tr);
-			});
-		}
+                tbody.appendChild(tr);
+            });
+        }
 
-		function renderPagination() {
-			const pagination = document.getElementById('pagination');
-			const totalPages = Math.ceil(allFiles.length / pageSize);
+        function renderPagination() {
+            const pagination = document.getElementById('pagination');
+            const totalPages = Math.ceil(allFiles.length / pageSize);
 
-			pagination.innerHTML = '';
+            pagination.innerHTML = '';
 
-			const prevBtn = document.createElement('button');
-			prevBtn.textContent = '上一页';
-			prevBtn.disabled = currentPage === 1;
-			prevBtn.onclick = () => {
-				if (currentPage > 1) {
-					currentPage--;
-					renderFileTable();
-					renderPagination();
-				}
-			};
-			pagination.appendChild(prevBtn);
+            const prevBtn = document.createElement('button');
+            prevBtn.textContent = '上一页';
+            prevBtn.disabled = currentPage === 1;
+            prevBtn.onclick = () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    renderFileTable();
+                    renderPagination();
+                }
+            };
+            pagination.appendChild(prevBtn);
 
-			const pageInfo = document.createElement('span');
-			pageInfo.className = 'page-info';
-			pageInfo.textContent = `第 ${currentPage} 页，共 ${totalPages} 页`;
-			pagination.appendChild(pageInfo);
+            const pageInfo = document.createElement('span');
+            pageInfo.className = 'page-info';
+            pageInfo.textContent = `第 ${currentPage} 页，共 ${totalPages} 页`;
+            pagination.appendChild(pageInfo);
 
-			const nextBtn = document.createElement('button');
-			nextBtn.textContent = '下一页';
-			nextBtn.disabled = currentPage === totalPages;
-			nextBtn.onclick = () => {
-				if (currentPage < totalPages) {
-					currentPage++;
-					renderFileTable();
-					renderPagination();
-				}
-			};
-			pagination.appendChild(nextBtn);
-		}
+            const nextBtn = document.createElement('button');
+            nextBtn.textContent = '下一页';
+            nextBtn.disabled = currentPage === totalPages;
+            nextBtn.onclick = () => {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    renderFileTable();
+                    renderPagination();
+                }
+            };
+            pagination.appendChild(nextBtn);
+        }
 
-		// 多文件上传逻辑（原样保留）
-		const fileInput = document.getElementById('fileInput');
-		const fileInfo = document.getElementById('fileInfo');
-		let selectedFiles = [];
+        // 多文件上传逻辑（原样保留）
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        let selectedFiles = [];
 
-		fileInput.addEventListener('change', function () {
-			const files = Array.from(fileInput.files);
-			if (files.length === 0) return;
+        fileInput.addEventListener('change', function () {
+            const files = Array.from(fileInput.files);
+            if (files.length === 0) return;
 
-			selectedFiles = selectedFiles.concat(files);
-			updateFileInfo();
-		});
+            selectedFiles = selectedFiles.concat(files);
+            updateFileInfo();
+        });
 
-		function updateFileInfo() {
-			if (selectedFiles.length === 0) {
-				fileInfo.textContent = '暂未选择文件';
-				return;
-			}
-			let text = '<strong>已选择文件：</strong><br>';
-			selectedFiles.forEach(f => {
-				text += `📄 ${f.name} (${(f.size / 1024).toFixed(2)} KB)<br>`;
-			});
-			fileInfo.innerHTML = text;
-		}
+        function updateFileInfo() {
+            if (selectedFiles.length === 0) {
+                fileInfo.textContent = '暂未选择文件';
+                return;
+            }
+            let text = '<strong>已选择文件：</strong><br>';
+            selectedFiles.forEach(f => {
+                text += `📄 ${f.name} (${(f.size / 1024).toFixed(2)} KB)<br>`;
+            });
+            fileInfo.innerHTML = text;
+        }
 
-		document.querySelector('form').addEventListener('submit', function (e) {
-			e.preventDefault();
+        document.querySelector('form').addEventListener('submit', function (e) {
+            e.preventDefault();
 
-			if (selectedFiles.length === 0) {
-				alert('请先选择至少一个文件！');
-				return;
-			}
+            if (selectedFiles.length === 0) {
+                alert('请先选择至少一个文件！');
+                return;
+            }
 
-			const formData = new FormData();
-			selectedFiles.forEach(f => formData.append('file', f));
+            const formData = new FormData();
+            selectedFiles.forEach(f => formData.append('file', f));
 
-			fetch('${baseUrl}/upload', {
-				method: 'POST',
-				body: formData,
-			})
-				.then(res => {
-					if (!res.ok) throw new Error('上传失败');
-					return res.text();
-				})
-				.then(() => {
-					alert('✅ 文件上传成功！');
-					selectedFiles = [];
-					updateFileInfo();
-					fileInput.value = '';
-				})
-				.catch(err => {
-					alert('❌ 上传出错：' + err.message);
-				});
-		});
+            fetch('${baseUrl}/upload', {
+                method: 'POST',
+                body: formData,
+            })
+                .then(res => {
+                    if (!res.ok) throw new Error('上传失败');
+                    return res.text();
+                })
+                .then(() => {
+                    alert('✅ 文件上传成功！');
+                    selectedFiles = [];
+                    updateFileInfo();
+                    fileInput.value = '';
+                })
+                .catch(err => {
+                    alert('❌ 上传出错：' + err.message);
+                });
+        });
 
-		// ✅ 新增：删除文件函数
-		async function deleteFile(filename) {
-			if (!confirm(`确定要删除文件 "${filename}" 吗？`)) return;
+        // ✅ 新增：删除文件函数
+        async function deleteFile(filename) {
+            if (!confirm(`确定要删除文件 "${filename}" 吗？`)) return;
 
-			try {
-				// 直接使用 /delete/filename 格式，不需要冒号
-				const response = await fetch(`${baseUrl}/delete/${encodeURIComponent(filename)}`, {
-					method: 'DELETE',
-				});
+            try {
+                // 直接使用 /delete/filename 格式，不需要冒号
+                const response = await fetch(`${baseUrl}/delete/${encodeURIComponent(filename)}`, {
+                    method: 'DELETE',
+                });
 
-				if (response.ok) {
-					alert(`✅ 文件 "${filename}" 删除成功！`);
-					loadFileList(); // 刷新列表
-				} else {
-					const errorMsg = await response.text();
-					alert(`❌ 删除失败：${errorMsg || '未知错误'}`);
-				}
-			} catch (err) {
-				console.error('删除请求出错:', err);
-				alert(`❌ 删除请求失败：${err.message}`);
-			}
-		}
+                if (response.ok) {
+                    alert(`✅ 文件 "${filename}" 删除成功！`);
+                    loadFileList(); // 刷新列表
+                } else {
+                    const errorMsg = await response.text();
+                    alert(`❌ 删除失败：${errorMsg || '未知错误'}`);
+                }
+            } catch (err) {
+                console.error('删除请求出错:', err);
+                alert(`❌ 删除请求失败：${err.message}`);
+            }
+        }
 
-		// 页面加载时获取文件列表
-		window.onload = function () {
-			loadFileList();
-		};
-	</script>
+        // 页面加载时获取文件列表
+        window.onload = function () {
+            loadFileList();
+        };
+    </script>
 </body>
 
 </html>

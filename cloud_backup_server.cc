@@ -97,7 +97,8 @@ void DateManagerTest()
 
 int main(int argc, char *argv[])
 {
-    // cloud_backup::InitCloudBackupLogger();
+    // 初始化日志器
+    cloud_backup::InitCloudBackupLogger();
 
     // ConfigTest();
 
