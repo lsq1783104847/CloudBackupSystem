@@ -216,7 +216,7 @@ namespace cloud_backup
         {
             size_t pos = std::string::npos;
             if (_head_info._request_url.size() > 1)
-                pos = _head_info._request_url.find_first_of('/', 1);
+                pos = _head_info._request_url.find('/', 1);
             _head_info._request_url_prefix = _head_info._request_url.substr(0, pos);
             if (pos < _head_info._request_url.size())
                 _head_info._request_url_path = _head_info._request_url.substr(pos);
@@ -239,9 +239,6 @@ namespace cloud_backup
         int on_header_value(llhttp_t *parser, const char *at, size_t length)
         {
             std::string tmp_header_value(at, length);
-            for (auto &e : tmp_header_value)
-                if (e >= 'A' && e <= 'Z')
-                    e += 'a' - 'A';
             _head_info._request_cur_header_value += tmp_header_value;
             return 0;
         }
@@ -279,8 +276,8 @@ namespace cloud_backup
             {
                 auto it = _head_info._request_headers.find("content-type");
                 std::string boundary_key = "boundary=";
-                if (it != _head_info._request_headers.end() && it->second.find_first_of(boundary_key) != std::string::npos)
-                    _head_info._body_boundary = "--" + it->second.substr(it->second.find_first_of(boundary_key) + boundary_key.size());
+                if (it != _head_info._request_headers.end() && it->second.find(boundary_key) != std::string::npos)
+                    _head_info._body_boundary = "--" + it->second.substr(it->second.find(boundary_key) + boundary_key.size());
                 else
                 {
                     LOG_WARN("process upload Request fail, content-type is invalid");
@@ -341,7 +338,10 @@ namespace cloud_backup
         {
             while (_head_info._request_body.size() > _head_info._body_boundary.size())
             {
-                int pos = _head_info._request_body.find_first_of(_head_info._body_boundary);
+                int pos = _head_info._request_body.find(_head_info._body_boundary);
+                LOG_INFO("process_upload_body INFO, _body_boundary:%s", _head_info._body_boundary.c_str());
+                LOG_INFO("process_upload_body INFO, pos:%d", pos);
+                LOG_INFO("process_upload_body INFO, _cur_upload_file:%s", _head_info._cur_upload_file.c_str());
                 if (_head_info._cur_upload_file == "")
                 {
                     if (pos == std::string::npos)
@@ -353,17 +353,23 @@ namespace cloud_backup
                     {
                         if (pos > 0)
                             _head_info._request_body.erase(0, pos);
-                        int head_end_pos = _head_info._request_body.find_first_of(SEP + SEP);
+                        int head_end_pos = _head_info._request_body.find(SEP + SEP);
                         if (head_end_pos == std::string::npos)
                             break;
                         std::string filename_key = "filename=\"";
-                        int filename_pos = _head_info._request_body.find_first_of(filename_key);
+                        int filename_pos = _head_info._request_body.find(filename_key);
                         if (filename_pos == std::string::npos || filename_pos > head_end_pos)
+                        {
+                            LOG_INFO("process_upload_body INFO, not find filename in head");
                             return false;
+                        }
                         filename_pos += filename_key.size();
-                        int filename_end_pos = _head_info._request_body.find_first_of('"', filename_pos);
+                        int filename_end_pos = _head_info._request_body.find('"', filename_pos);
                         if (filename_end_pos == std::string::npos || filename_end_pos > head_end_pos)
+                        {
+                            LOG_INFO("process_upload_body INFO, not find filename end in head filename_end_pos:%d head_end_pos:%d", filename_end_pos, head_end_pos);
                             return false;
+                        }
                         _head_info._cur_upload_file = _head_info._request_body.substr(filename_pos, filename_end_pos - filename_pos);
                         _head_info._request_body.erase(0, head_end_pos + SEP.size() * 2);
                         if (!FileUtil::check_filename(_head_info._cur_upload_file) ||
@@ -453,10 +459,10 @@ namespace cloud_backup
             if (_head_info._request_headers.find("if-range") != _head_info._request_headers.end() &&
                 _head_info._request_headers.find("range") != _head_info._request_headers.end())
             {
-                if (_head_info._request_headers["if-range"] == ETag && _head_info._request_headers["range"].find_first_of("bytes=") == 0)
+                if (_head_info._request_headers["if-range"] == ETag && _head_info._request_headers["range"].find("bytes=") == 0)
                 {
                     std::string range_value = _head_info._request_headers["range"].substr(6);
-                    int dash_pos = range_value.find_first_of('-');
+                    int dash_pos = range_value.find('-');
                     start_pos = std::stoll(range_value.substr(0, dash_pos));
                     if (dash_pos + 1 < range_value.size())
                         end_pos = std::min(std::stoll(range_value.substr(dash_pos + 1)), end_pos);
@@ -580,7 +586,6 @@ namespace cloud_backup
                 handle_size = std::min(object->_request_buffer.size(), handle_size);
                 cur_handle_request = object->_request_buffer.substr(0, handle_size);
             }
-            LOG_INFO("process Request, will handle %zu bytes from net_fd:%s message:%s", handle_size, object->_net_fd_identifier.c_str(), cur_handle_request.c_str());
 
             int err = llhttp_execute(&object->_parser, cur_handle_request.c_str(), cur_handle_request.size());
             if (err != HPE_OK && err != HPE_PAUSED)
@@ -590,7 +595,10 @@ namespace cloud_backup
                 return;
             }
             if (err == HPE_PAUSED)
+            {
                 handle_size = llhttp_get_error_pos(&object->_parser) - cur_handle_request.c_str();
+                llhttp_resume(&object->_parser);
+            }
             {
                 std::unique_lock<std::mutex> request_lock(object->_request_mutex);
                 object->_request_buffer.erase(0, handle_size);

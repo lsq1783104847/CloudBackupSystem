@@ -212,7 +212,7 @@
         // 从后端 API 加载文件列表
         async function loadFileList() {
             try {
-                const res = await fetch('${baseUrl}/api/GetBackupFiles'); // 后端 API 地址
+                const res = await fetch('/api/GetBackupFiles'); // 后端 API 地址
                 const data = await res.json();
                 allFiles = data.files || [];
                 renderFileTable();
@@ -335,7 +335,7 @@
             const formData = new FormData();
             selectedFiles.forEach(f => formData.append('file', f));
 
-            fetch('${baseUrl}/upload', {
+            fetch('/upload', {
                 method: 'POST',
                 body: formData,
             })
@@ -360,7 +360,7 @@
 
             try {
                 // 直接使用 /delete/filename 格式，不需要冒号
-                const response = await fetch(`${baseUrl}/delete/${encodeURIComponent(filename)}`, {
+                const response = await fetch(`/delete/${encodeURIComponent(filename)}`, {
                     method: 'DELETE',
                 });
 

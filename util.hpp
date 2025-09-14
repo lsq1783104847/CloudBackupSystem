@@ -234,7 +234,7 @@ namespace cloud_backup
                 ret += "./";
             while (lpos < path.size())
             {
-                rpos = path.find_first_of('/', lpos);
+                rpos = path.find('/', lpos);
                 if (rpos == lpos)
                     return "";
                 if (rpos == std::string::npos)
@@ -269,7 +269,7 @@ namespace cloud_backup
 
             while (lpos < ret.size())
             {
-                rpos = ret.find_first_of('/', lpos);
+                rpos = ret.find('/', lpos);
                 std::string sstr = ret.substr(lpos, (rpos == std::string::npos ? rpos : rpos - lpos));
                 lpos = (rpos == std::string::npos ? rpos : rpos + 1);
                 if (sstr == ".")

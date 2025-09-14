@@ -15,14 +15,14 @@ namespace cloud_backup
         CloudBackupServer(const std::string &program_path)
         {
             // 将进程变成守护进程
-            Daemon(program_path);
+            // Daemon(program_path);
             // 读取配置文件修改日志器的落地方向
             auto config = Config::GetInstance();
-            if (ModifyCloudBackupLoggerSinks(config->GetLogFilePath(), config->GetRollFileSize()) == false)
-            {
-                LOG_ERROR("ModifyCloudBackupLoggerSinks error, exit");
-                exit(LOAD_CONFIG_FILE_ERROR);
-            }
+            // if (ModifyCloudBackupLoggerSinks(config->GetLogFilePath(), config->GetRollFileSize()) == false)
+            // {
+            //     LOG_ERROR("ModifyCloudBackupLoggerSinks error, exit");
+            //     exit(LOAD_CONFIG_FILE_ERROR);
+            // }
             // 读取配置文件获取服务器端口号
             _server_port = config->GetServerPort();
 
@@ -133,16 +133,24 @@ namespace cloud_backup
         // 从底层获取新到来的连接，并将其放入epoll监听队列中
         void Accepter()
         {
-            std::string client_ip;
-            uint16_t client_port;
-            int new_net_fd = _socket.Accept(&client_ip, &client_port);
-            if (new_net_fd == -1)
+            while (true)
             {
-                LOG_WARN("Accepter ERROR, Accept ERROR");
-                return;
+                std::string client_ip;
+                uint16_t client_port;
+                int new_net_fd = _socket.Accept(&client_ip, &client_port);
+                if (new_net_fd == -1)
+                {
+                    if (errno == EAGAIN || errno == EWOULDBLOCK)
+                        break;
+                    else if (errno == EINTR)
+                        continue;
+                    else
+                        LOG_ERROR("Accepter ERROR, accept error:%d  message:%s", errno, strerror(errno));
+                    continue;
+                }
+                LOG_INFO("New connection accepted, client_ip:%s client_port:%d new_net_fd:%d", client_ip.c_str(), client_port, new_net_fd);
+                AddConnection(new_net_fd, client_ip, client_port);
             }
-            LOG_INFO("New connection accepted, client_ip:%s client_port:%d new_net_fd:%d", client_ip.c_str(), client_port, new_net_fd);
-            AddConnection(new_net_fd, client_ip, client_port);
         }
         // 将新的连接放入epoll监听队列和连接池中
         void AddConnection(int net_fd, const std::string &client_ip, uint16_t client_port)
@@ -208,7 +216,7 @@ namespace cloud_backup
             int pos = 0;
             while (pos < _read_pipe_buffer.size())
             {
-                int comma_pos = _read_pipe_buffer.find_first_of(',', pos);
+                int comma_pos = _read_pipe_buffer.find(',', pos);
                 if (comma_pos == std::string::npos)
                     break;
                 std::string net_fd_str = _read_pipe_buffer.substr(pos, comma_pos - pos);
@@ -272,6 +280,7 @@ namespace cloud_backup
                     tmp_buffer[read_bytes] = '\0';
                     LOG_INFO("NetReader INFO, read %d bytes from net_fd:%d message:%s", read_bytes, net_fd, tmp_buffer);
                     std::unique_lock<std::mutex> request_lock(connection->_request_mutex);
+                    LOG_DEBUG("before append, request_buffer size:%d is_processing:%d", connection->_request_buffer.size(), connection->_is_processing);
                     connection->_request_buffer += std::string(tmp_buffer);
                     if (connection->_is_processing == false)
                     {
@@ -311,7 +320,7 @@ namespace cloud_backup
                 }
                 else if (write_bytes >= 0)
                 {
-                    LOG_INFO("NetWriter INFO, write %d bytes to net_fd:%d", write_bytes, net_fd);
+                    LOG_INFO("NetWriter INFO, write %d bytes to net_fd:%d\n message:%s", write_bytes, net_fd, connection->_response_buffer.c_str());
                     connection->_response_buffer.erase(0, write_bytes);
                     if (connection->_response_buffer.empty())
                     {
