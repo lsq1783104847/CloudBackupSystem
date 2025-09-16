@@ -520,9 +520,9 @@ namespace cloud_backup
             }
             int ret = epoll_wait(_epollfd, events, maxevents, -1);
             if (ret > 0)
-                LOG_INFO("%d events are ready", ret);
+                LOG_DEBUG("%d events are ready", ret);
             else if (ret == 0)
-                LOG_INFO("EpollWait timeout");
+                LOG_DEBUG("EpollWait timeout");
             else
                 LOG_ERROR("EpollWait error:%d  message:%s", errno, strerror(errno));
             return ret;
