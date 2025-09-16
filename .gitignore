@@ -1,3 +1,3 @@
 log/
-wwwroot/backup_file_dir/
+wwwroot/backup_file_dir/*
 wwwroot/data_manager_file

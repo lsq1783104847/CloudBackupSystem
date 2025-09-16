@@ -15,14 +15,14 @@ namespace cloud_backup
         CloudBackupServer(const std::string &program_path)
         {
             // 将进程变成守护进程
-            // Daemon(program_path);
+            Daemon(program_path);
             // 读取配置文件修改日志器的落地方向
             auto config = Config::GetInstance();
-            // if (ModifyCloudBackupLoggerSinks(config->GetLogFilePath(), config->GetRollFileSize()) == false)
-            // {
-            //     LOG_ERROR("ModifyCloudBackupLoggerSinks error, exit");
-            //     exit(LOAD_CONFIG_FILE_ERROR);
-            // }
+            if (ModifyCloudBackupLoggerSinks(config->GetLogFilePath(), config->GetRollFileSize()) == false)
+            {
+                LOG_ERROR("ModifyCloudBackupLoggerSinks error, exit");
+                exit(LOAD_CONFIG_FILE_ERROR);
+            }
             // 读取配置文件获取服务器端口号
             _server_port = config->GetServerPort();
 
@@ -278,6 +278,8 @@ namespace cloud_backup
                 else if (read_bytes > 0)
                 {
                     tmp_buffer[read_bytes] = '\0';
+                    LOG_INFO("NetReader INFO, read %d bytes from net_fd:%d", read_bytes, net_fd);
+                    // LOG_DEBUG("%s", tmp_buffer);
                     std::unique_lock<std::mutex> request_lock(connection->_request_mutex);
                     for (int i = 0; i < read_bytes; ++i)
                         connection->_request_buffer += tmp_buffer[i];
@@ -319,7 +321,8 @@ namespace cloud_backup
                 }
                 else if (write_bytes >= 0)
                 {
-                    LOG_DEBUG("NetWriter INFO, write %d bytes to net_fd:%d\n message:%s", write_bytes, net_fd, connection->_response_buffer.c_str());
+                    LOG_INFO("NetWriter INFO, write %d bytes to net_fd:%d", write_bytes, net_fd);
+                    // LOG_DEBUG("%s", connection->_response_buffer.substr(0, write_bytes).c_str());
                     connection->_response_buffer.erase(0, write_bytes);
                     if (connection->_response_buffer.empty())
                     {

@@ -405,6 +405,7 @@ namespace cloud_backup
                             _head_info._cur_upload_file.clear();
                             continue;
                         }
+                        LOG_DEBUG("process_upload_body INFO, upload file:%s size:%d", _head_info._cur_upload_file.c_str(), file_content.size());
                     }
                     if (pos != std::string::npos)
                     {
@@ -472,6 +473,8 @@ namespace cloud_backup
                 }
                 _head_info._response_status = "206";
                 _head_info._response_status_describe = "Partial Content";
+                _head_info._response_headers["Content-Length"] = std::to_string(end_pos - start_pos);
+                _head_info._response_headers["Content-Range"] = "bytes " + std::to_string(start_pos) + '-' + std::to_string(end_pos - 1) + '/' + std::to_string(file_info_node->_info._size);
             }
             _sub_task = std::bind(&HTTPConnection::sendFile, std::placeholders::_1, file_info_node, start_pos, end_pos);
         }
