@@ -96,8 +96,8 @@ namespace cloud_backup
                 ifs.close();
                 return true;
             }
-            char buff[len] = {0};
-            ifs.read(buff, len);
+            std::shared_ptr<char[]> buff(new char[len], std::default_delete<char[]>());
+            ifs.read(buff.get(), len);
             if (!ifs.good())
             {
                 LOG_ERROR("GetContent error, read file failed");
@@ -106,7 +106,7 @@ namespace cloud_backup
             }
             buffer->resize(len);
             for (size_t i = 0; i < len; i++)
-                (*buffer)[i] = buff[i];
+                (*buffer)[i] = buff.get()[i];
             ifs.close();
             return true;
         }
@@ -310,6 +310,45 @@ namespace cloud_backup
                     return false;
             return true;
         }
+        // 对传入的字符串进行URL解码并返回编码前的字符串，解析错误则返回空串
+        static std::string URLDecode(const std::string &str)
+        {
+            std::ostringstream decoded;
+            for (size_t i = 0; i < str.size(); ++i)
+            {
+                if (str[i] == '%')
+                {
+                    if (i + 2 >= str.size())
+                    {
+                        LOG_WARN("urlDecode error, string format error");
+                        return "";
+                    }
+                    int hex1 = std::tolower(str[i + 1]);
+                    int hex2 = std::tolower(str[i + 2]);
+
+                    if (std::isxdigit(hex1) && std::isxdigit(hex2))
+                    {
+                        int value = (hex1 - (std::isdigit(hex1) ? '0' : 'a' - 10)) * 16 +
+                                    (hex2 - (std::isdigit(hex2) ? '0' : 'a' - 10));
+                        decoded << static_cast<char>(value);
+                        i += 2;
+                        continue;
+                    }
+                    else
+                    {
+                        LOG_WARN("urlDecode error, string format error");
+                        return "";
+                    }
+                }
+                else if (str[i] == '+')
+                {
+                    decoded << ' ';
+                    continue;
+                }
+                decoded << str[i];
+            }
+            return decoded.str();
+        }
 
     private:
         std::string _filepath;
@@ -425,7 +464,7 @@ namespace cloud_backup
                         *client_port = ntohs(client_addr.sin_port);
                 }
             }
-            if (new_fd == -1)
+            if (new_fd == -1 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
                 LOG_WARN("accept error:%d  message:%s", errno, strerror(errno));
             return new_fd;
         }

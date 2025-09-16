@@ -253,8 +253,8 @@ namespace cloud_backup
                 return;
             }
             HTTPConnection::ptr connection = _connections[net_fd];
-            static const int tmp_buffer_size = 4096;
-            static char tmp_buffer[tmp_buffer_size];
+            static const long long tmp_buffer_size = Config::GetInstance()->GetTCPBufferReadSize();
+            char tmp_buffer[tmp_buffer_size] = {0};
             while (true)
             {
                 ssize_t read_bytes = read(net_fd, tmp_buffer, tmp_buffer_size - 1);
@@ -278,10 +278,9 @@ namespace cloud_backup
                 else if (read_bytes > 0)
                 {
                     tmp_buffer[read_bytes] = '\0';
-                    LOG_INFO("NetReader INFO, read %d bytes from net_fd:%d message:%s", read_bytes, net_fd, tmp_buffer);
                     std::unique_lock<std::mutex> request_lock(connection->_request_mutex);
-                    LOG_DEBUG("before append, request_buffer size:%d is_processing:%d", connection->_request_buffer.size(), connection->_is_processing);
-                    connection->_request_buffer += std::string(tmp_buffer);
+                    for (int i = 0; i < read_bytes; ++i)
+                        connection->_request_buffer += tmp_buffer[i];
                     if (connection->_is_processing == false)
                     {
                         connection->_is_processing = true;
@@ -320,7 +319,7 @@ namespace cloud_backup
                 }
                 else if (write_bytes >= 0)
                 {
-                    LOG_INFO("NetWriter INFO, write %d bytes to net_fd:%d\n message:%s", write_bytes, net_fd, connection->_response_buffer.c_str());
+                    LOG_DEBUG("NetWriter INFO, write %d bytes to net_fd:%d\n message:%s", write_bytes, net_fd, connection->_response_buffer.c_str());
                     connection->_response_buffer.erase(0, write_bytes);
                     if (connection->_response_buffer.empty())
                     {

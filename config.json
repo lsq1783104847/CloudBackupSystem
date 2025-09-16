@@ -5,11 +5,12 @@
     "LRU_file_capacity": 10,
     "LRU_file_content_size": 10485760,
     "max_file_read_size": 10485760,
+    "TCP_buffer_read_size": 131072,
     "thread_pool_queue_capacity": 1024,
     "thread_pool_threads_size": 4,
     "listen_queue_size": 32,
     "epoll_events_size": 64,
-    "per_handle_request_size": 1500,
+    "per_handle_request_size": 6000,
     "data_manager_filepath": "./wwwroot/data_manager_file",
     "backup_file_dir": "./wwwroot/backup_file_dir"
 }

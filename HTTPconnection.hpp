@@ -17,6 +17,7 @@ namespace cloud_backup
     {
     public:
         using ptr = std::shared_ptr<HTTPConnection>;
+        using sub_fun_t = std::function<void(HTTPConnection::ptr)>;
         HTTPConnection(const std::string &net_fd_identifier, int write_pipe_fd, const std::string &client_ip, uint16_t client_port)
             : _net_fd_identifier(net_fd_identifier), _write_pipe_fd(write_pipe_fd), _client_ip(client_ip), _client_port(client_port)
         {
@@ -36,7 +37,7 @@ namespace cloud_backup
             llhttp_init(&_parser, HTTP_REQUEST, &_settings);
             _parser.data = this;
         }
-        ~HTTPConnection() {}
+        ~HTTPConnection() { LOG_DEBUG("HTTPConnection destory"); }
 
     public:
         std::atomic<bool> _is_closed = false; // 当前连接是否已关闭
@@ -134,7 +135,7 @@ namespace cloud_backup
         llhttp_settings_t _settings;
         llhttp_t _parser;
         HTTPMessageInfo _head_info;
-        fun_t _sub_task;
+        sub_fun_t _sub_task;
 
     private:
         static int static_on_message_begin(llhttp_t *parser)
@@ -254,7 +255,7 @@ namespace cloud_backup
             _head_info._response_version = "HTTP/" + _head_info._request_version;
             if (_head_info._request_method == "GET" && _head_info._request_url_prefix == "/download")
             {
-                _head_info._cur_download_file = _head_info._request_url_path.substr(1);
+                _head_info._cur_download_file = FileUtil::URLDecode(_head_info._request_url_path.substr(1));
                 if (!FileUtil::check_filename(_head_info._cur_download_file))
                 {
                     LOG_WARN("process download Request fail, download filename is invalid");
@@ -264,7 +265,7 @@ namespace cloud_backup
             }
             else if (_head_info._request_method == "DELETE" && _head_info._request_url_prefix == "/delete")
             {
-                _head_info._cur_delete_file = _head_info._request_url_path.substr(1);
+                _head_info._cur_delete_file = FileUtil::URLDecode(_head_info._request_url_path.substr(1));
                 if (!FileUtil::check_filename(_head_info._cur_delete_file))
                 {
                     LOG_WARN("process delete Request fail, delete filename is invalid");
@@ -336,14 +337,11 @@ namespace cloud_backup
 
         bool process_upload_body()
         {
-            while (_head_info._request_body.size() > _head_info._body_boundary.size())
+            while (_head_info._request_body.size() > _head_info._body_boundary.size() + SEP.size())
             {
-                int pos = _head_info._request_body.find(_head_info._body_boundary);
-                LOG_INFO("process_upload_body INFO, _body_boundary:%s", _head_info._body_boundary.c_str());
-                LOG_INFO("process_upload_body INFO, pos:%d", pos);
-                LOG_INFO("process_upload_body INFO, _cur_upload_file:%s", _head_info._cur_upload_file.c_str());
                 if (_head_info._cur_upload_file == "")
                 {
+                    int pos = _head_info._request_body.find(_head_info._body_boundary);
                     if (pos == std::string::npos)
                     {
                         if (_head_info._request_body.size() > _head_info._body_boundary.size())
@@ -384,27 +382,29 @@ namespace cloud_backup
                 else
                 {
                     std::string file_content;
+                    int pos = _head_info._request_body.find(SEP + _head_info._body_boundary);
                     if (pos == std::string::npos)
                     {
-                        if (_head_info._request_body.size() > _head_info._body_boundary.size())
-                            file_content = _head_info._request_body.substr(0, _head_info._request_body.size() - _head_info._body_boundary.size());
+                        if (_head_info._request_body.size() > _head_info._body_boundary.size() + SEP.size())
+                            file_content = _head_info._request_body.substr(0, _head_info._request_body.size() - _head_info._body_boundary.size() - SEP.size());
                     }
                     else
                         file_content = _head_info._request_body.substr(0, pos);
-                    _head_info._request_body.erase(0, file_content.size());
-                    if (file_content.empty())
-                        continue;
                     std::string target_file_dir = Config::GetInstance()->GetBackupFileDir();
                     if (target_file_dir.back() != '/')
                         target_file_dir += '/';
                     FileUtil target_file(target_file_dir + _head_info._cur_upload_file);
-                    if (!target_file.AppendContent(file_content))
+                    if (file_content.size() > 0)
                     {
-                        if (!DataManager::GetInstance()->Deregister(_head_info._cur_upload_file))
-                            LOG_ERROR("process_upload_body error, Deregister fail, filename:%s", _head_info._cur_upload_file.c_str());
-                        _head_info._upload_fail_files.push_back(_head_info._cur_upload_file);
-                        _head_info._cur_upload_file.clear();
-                        continue;
+                        _head_info._request_body.erase(0, file_content.size());
+                        if (!target_file.AppendContent(file_content))
+                        {
+                            if (!DataManager::GetInstance()->Deregister(_head_info._cur_upload_file))
+                                LOG_ERROR("process_upload_body error, Deregister fail, filename:%s", _head_info._cur_upload_file.c_str());
+                            _head_info._upload_fail_files.push_back(_head_info._cur_upload_file);
+                            _head_info._cur_upload_file.clear();
+                            continue;
+                        }
                     }
                     if (pos != std::string::npos)
                     {
@@ -446,6 +446,8 @@ namespace cloud_backup
                 _head_info._response_status_describe = "Not Found";
                 return;
             }
+            LOG_DEBUG("process download Request, filename:%s size:%lld time:%lld",
+                      file_info_node->_info._filename.c_str(), file_info_node->_info._size, file_info_node->_info._time);
             std::string ETag = file_info_node->_info._filename + '-' + std::to_string(file_info_node->_info._time) + '-' + std::to_string(file_info_node->_info._size);
             _head_info._response_status = "200";
             _head_info._response_status_describe = "OK";
@@ -454,6 +456,7 @@ namespace cloud_backup
             _head_info._response_headers["ETag"] = ETag;
             _head_info._response_headers["Content-Length"] = std::to_string(file_info_node->_info._size);
             _head_info._response_headers["Content-Disposition"] = "attachment; filename=\"" + file_info_node->_info._filename + '"';
+            LOG_DEBUG("process download Request, ETag:%s", ETag.c_str());
             long long start_pos = 0;
             long long end_pos = file_info_node->_info._size;
             if (_head_info._request_headers.find("if-range") != _head_info._request_headers.end() &&
@@ -465,12 +468,12 @@ namespace cloud_backup
                     int dash_pos = range_value.find('-');
                     start_pos = std::stoll(range_value.substr(0, dash_pos));
                     if (dash_pos + 1 < range_value.size())
-                        end_pos = std::min(std::stoll(range_value.substr(dash_pos + 1)), end_pos);
+                        end_pos = std::min(std::stoll(range_value.substr(dash_pos + 1)) + 1, end_pos);
                 }
                 _head_info._response_status = "206";
                 _head_info._response_status_describe = "Partial Content";
             }
-            _sub_task = std::bind(&HTTPConnection::sendFile, HTTPConnection::ptr(this), file_info_node, start_pos, end_pos);
+            _sub_task = std::bind(&HTTPConnection::sendFile, std::placeholders::_1, file_info_node, start_pos, end_pos);
         }
         void process_delete_request()
         {
@@ -578,7 +581,7 @@ namespace cloud_backup
         {
             if (object->_is_closed)
                 return;
-            object->_sub_task = fun_t();
+            object->_sub_task = sub_fun_t();
             size_t handle_size = Config::GetInstance()->GetPerHandleRequestSize();
             std::string cur_handle_request;
             {
@@ -607,13 +610,13 @@ namespace cloud_backup
                     if (object->_request_buffer.empty())
                         object->_is_processing = false;
                     else
-                        object->_sub_task = std::bind(&HTTPConnection::handler, object);
+                        object->_sub_task = std::bind(&HTTPConnection::handler, std::placeholders::_1);
                 }
             }
             if (object->_sub_task)
             {
-                if (!TaskThreadPool::GetInstance()->try_push(object->_sub_task))
-                    object->_sub_task();
+                if (!TaskThreadPool::GetInstance()->try_push(std::bind(object->_sub_task, object)))
+                    object->_sub_task(object);
             }
         }
         // 将文件内容分段的写入到发送缓冲区中(默认之前已经构建好了HTTP响应报头并已经放入其中，现在放入的是HTTP响应的body)
@@ -622,7 +625,7 @@ namespace cloud_backup
         {
             if (object->_is_closed)
                 return;
-            object->_sub_task = fun_t();
+            object->_sub_task = sub_fun_t();
 
             auto data_manager = DataManager::GetInstance();
             if (file_info_node == nullptr)
@@ -630,8 +633,8 @@ namespace cloud_backup
                 object->notify_close_curent_connection();
                 return;
             }
-            if (start_pos <= end_pos)
-                LOG_INFO("read position more than file:%s tail", file_info_node->_info._filename.size());
+            if (start_pos >= end_pos)
+                LOG_INFO("read position more than file:%s tail", file_info_node->_info._filename.c_str());
             else
             {
                 std::string file_content;
@@ -670,7 +673,7 @@ namespace cloud_backup
                 object->notify_new_message_need_send();
                 start_pos += file_content.size();
                 if (start_pos < end_pos)
-                    object->_sub_task = std::bind(&HTTPConnection::sendFile, object, file_info_node, start_pos, end_pos);
+                    object->_sub_task = std::bind(&HTTPConnection::sendFile, std::placeholders::_1, file_info_node, start_pos, end_pos);
             }
             if (object->_sub_task == nullptr)
             {
@@ -678,12 +681,12 @@ namespace cloud_backup
                 if (object->_request_buffer.empty())
                     object->_is_processing = false;
                 else
-                    object->_sub_task = std::bind(&HTTPConnection::handler, object);
+                    object->_sub_task = std::bind(&HTTPConnection::handler, std::placeholders::_1);
             }
             if (object->_sub_task)
             {
-                if (!TaskThreadPool::GetInstance()->try_push(object->_sub_task))
-                    object->_sub_task();
+                if (!TaskThreadPool::GetInstance()->try_push(std::bind(object->_sub_task, object)))
+                    object->_sub_task(object);
             }
         }
     };
