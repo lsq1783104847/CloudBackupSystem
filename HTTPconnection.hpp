@@ -358,14 +358,14 @@ namespace cloud_backup
                         int filename_pos = _head_info._request_body.find(filename_key);
                         if (filename_pos == std::string::npos || filename_pos > head_end_pos)
                         {
-                            LOG_INFO("process_upload_body INFO, not find filename in head");
+                            LOG_WARN("process_upload_body WARNING, not find filename in head");
                             return false;
                         }
                         filename_pos += filename_key.size();
                         int filename_end_pos = _head_info._request_body.find('"', filename_pos);
                         if (filename_end_pos == std::string::npos || filename_end_pos > head_end_pos)
                         {
-                            LOG_INFO("process_upload_body INFO, not find filename end in head filename_end_pos:%d head_end_pos:%d", filename_end_pos, head_end_pos);
+                            LOG_WARN("process_upload_body WARNING, not find filename end in head filename_end_pos:%d head_end_pos:%d", filename_end_pos, head_end_pos);
                             return false;
                         }
                         _head_info._cur_upload_file = _head_info._request_body.substr(filename_pos, filename_end_pos - filename_pos);
@@ -637,7 +637,7 @@ namespace cloud_backup
                 return;
             }
             if (start_pos >= end_pos)
-                LOG_INFO("read position more than file:%s tail", file_info_node->_info._filename.c_str());
+                LOG_WARN("read position more than file:%s tail", file_info_node->_info._filename.c_str());
             else
             {
                 std::string file_content;

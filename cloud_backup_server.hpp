@@ -103,13 +103,13 @@ namespace cloud_backup
                     {
                         if (_events[pos].data.fd == _socket.GetSocketet())
                         {
-                            LOG_INFO("Dispatcher INFO, server accepter fd:%d event ready", _events[pos].data.fd);
+                            LOG_DEBUG("Dispatcher INFO, server accepter fd:%d event ready", _events[pos].data.fd);
                             if (_events[pos].events & EPOLLIN)
                                 Accepter();
                         }
                         else if (_events[pos].data.fd == _read_pipe_fd)
                         {
-                            LOG_INFO("Dispatcher INFO, pipe reader fd:%d event ready", _events[pos].data.fd);
+                            LOG_DEBUG("Dispatcher INFO, pipe reader fd:%d event ready", _events[pos].data.fd);
                             if (_events[pos].events & EPOLLIN)
                                 PipeDataReader();
                         }
@@ -117,12 +117,12 @@ namespace cloud_backup
                         {
                             if (_events[pos].events & EPOLLIN)
                             {
-                                LOG_INFO("Dispatcher INFO, net_fd:%d reader socket event ready", _events[pos].data.fd);
+                                LOG_DEBUG("Dispatcher INFO, net_fd:%d reader socket event ready", _events[pos].data.fd);
                                 NetReader(_events[pos].data.fd);
                             }
                             if (_events[pos].events & EPOLLOUT)
                             {
-                                LOG_INFO("Dispatcher INFO, net_fd:%d writer socket event ready", _events[pos].data.fd);
+                                LOG_DEBUG("Dispatcher INFO, net_fd:%d writer socket event ready", _events[pos].data.fd);
                                 NetWriter(_events[pos].data.fd);
                             }
                         }
@@ -188,7 +188,7 @@ namespace cloud_backup
                         break;
                     else if (errno == EINTR)
                         continue;
-                    LOG_WARN("PipeDataReader ERROR, read pipe error:%d message:%s", errno, strerror(errno));
+                    LOG_ERROR("PipeDataReader ERROR, read pipe error:%d message:%s", errno, strerror(errno));
                     break;
                 }
                 else if (read_bytes == 0)
@@ -201,7 +201,7 @@ namespace cloud_backup
                 }
                 else if (read_bytes > 0)
                 {
-                    LOG_INFO("PipeDataReader INFO, read %d bytes from pipe", read_bytes);
+                    LOG_DEBUG("PipeDataReader INFO, read %d bytes from pipe", read_bytes);
                     tmp_buffer[read_bytes] = '\0';
                     _read_pipe_buffer += tmp_buffer;
                 }
@@ -232,13 +232,16 @@ namespace cloud_backup
                 int use_time = std::stoi(net_fd_identifier.substr(underscore_pos + 1));
                 if (net_fd < 0 || _connections.find(net_fd) == _connections.end() || use_time != _record_net_fd_use_time[net_fd])
                     continue;
-                LOG_INFO("PipeDataHandler INFO, handle net_fd:%d, op:%c", net_fd, op);
+                LOG_DEBUG("PipeDataHandler INFO, handle net_fd:%d, op:%c", net_fd, op);
                 if (op == 'r')
                     NetReader(net_fd);
                 else if (op == 'w')
                     NetWriter(net_fd);
                 else if (op == 'c')
+                {
+                    LOG_INFO("Server will terminate the connection net_fd:%d", net_fd);
                     NetExcepter(net_fd);
+                }
             }
             pos = _read_pipe_buffer.find_last_of(',');
             if (pos != std::string::npos)
@@ -278,8 +281,8 @@ namespace cloud_backup
                 else if (read_bytes > 0)
                 {
                     tmp_buffer[read_bytes] = '\0';
-                    LOG_INFO("NetReader INFO, read %d bytes from net_fd:%d", read_bytes, net_fd);
-                    // LOG_DEBUG("%s", tmp_buffer);
+                    LOG_DEBUG("NetReader INFO, read %d bytes from net_fd:%d", read_bytes, net_fd);
+                    LOG_DEBUG("%s", tmp_buffer);
                     std::unique_lock<std::mutex> request_lock(connection->_request_mutex);
                     for (int i = 0; i < read_bytes; ++i)
                         connection->_request_buffer += tmp_buffer[i];
@@ -321,8 +324,8 @@ namespace cloud_backup
                 }
                 else if (write_bytes >= 0)
                 {
-                    LOG_INFO("NetWriter INFO, write %d bytes to net_fd:%d", write_bytes, net_fd);
-                    // LOG_DEBUG("%s", connection->_response_buffer.substr(0, write_bytes).c_str());
+                    LOG_DEBUG("NetWriter INFO, write %d bytes to net_fd:%d", write_bytes, net_fd);
+                    LOG_DEBUG("%s", connection->_response_buffer.substr(0, write_bytes).c_str());
                     connection->_response_buffer.erase(0, write_bytes);
                     if (connection->_response_buffer.empty())
                     {

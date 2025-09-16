@@ -100,19 +100,7 @@ int main(int argc, char *argv[])
     // 初始化日志器
     cloud_backup::InitCloudBackupLogger();
 
-    // ConfigTest();
-
-    // JsonTest();
-
-    // FileUtilTest1();
-
-    // FileUtilTest2();
-
-    // FileUtilTest3();
-
-    // DateManagerTest();
-
-    cloud_backup::CloudBackupServer cbs(argv[0]);
+    cloud_backup::CloudBackupServer cloud_backup_server(argv[0]);
 
     return 0;
 }

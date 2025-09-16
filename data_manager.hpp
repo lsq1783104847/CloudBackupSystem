@@ -329,6 +329,11 @@ namespace cloud_backup
         DataManager &operator=(const DataManager &) = delete;
         DataManager(const std::string &filepath) : _file(filepath)
         {
+            if (!_file.Exists() && !_file.AppendContent("null"))
+            {
+                LOG_FATAL("DataManager initialization error, create data manager file failed: %s", filepath.c_str());
+                exit(DATA_MANAGER_INIT_ERROR);
+            }
             LoadFromFile();
             VerifyFileLegality();
             _file_storage_thread = std::thread(&DataManager::FileStorageThread, this); // 启动异步文件存储线程

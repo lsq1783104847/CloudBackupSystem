@@ -1,3 +1,4 @@
 log/
 wwwroot/backup_file_dir/*
 wwwroot/data_manager_file
+cloud_backup_server

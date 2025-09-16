@@ -43,6 +43,7 @@ namespace cloud_backup
         Config(const Config &cnf) = delete;
         Config &operator=(const Config &cnf) = delete;
 
+        // 加载配置文件并按照JSON格式解析，成功返回true
         bool ReadConfigFile()
         {
             FileUtil file(_config_file_path);

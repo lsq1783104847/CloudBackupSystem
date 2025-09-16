@@ -7,6 +7,8 @@
 namespace cloud_backup
 {
     template <class Task>
+    // 线程池单例类，Task是任务的类型，要求Task是可调用的类型
+    // 交易场所使用环形队列设计，并使用信号量和互斥锁保证线程安全
     class ThreadPool
     {
     public:
@@ -18,6 +20,7 @@ namespace cloud_backup
             for (auto &worker_thread : _worker_threads)
                 worker_thread.join();
         }
+        // 阻塞式的向线程池中添加任务
         void push(const Task &task)
         {
             if (!task)
@@ -30,6 +33,7 @@ namespace cloud_backup
             }
             sem_post(&_ready_tasks);
         }
+        // 非阻塞式的向线程池中添加任务，添加成功返回true，否则返回false
         bool try_push(const Task &task)
         {
             if (!task)
@@ -60,6 +64,7 @@ namespace cloud_backup
         ThreadPool(const ThreadPool<Task> &tp) = delete;
         ThreadPool<Task> &operator=(const ThreadPool<Task> &tp) = delete;
 
+        // 线程池中每个工作线程执行的函数，即不断的从任务队列中取出任务并执行
         void ThreadRUN()
         {
             while (1)
